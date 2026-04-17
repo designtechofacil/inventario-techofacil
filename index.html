@@ -12,9 +12,20 @@
         
         .no-print { display: block; }
         .config-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 8px; }
+        
+        /* Sección de búsqueda mejorada */
         .search-section { position: relative; margin-bottom: 30px; }
+        .search-controls { display: flex; gap: 10px; align-items: center; }
         input { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
+        .btn-filter { 
+            background: white; border: 1px solid #ccc; padding: 10px; border-radius: 6px; 
+            cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 14px;
+            min-width: 140px; transition: 0.3s;
+        }
+        .btn-filter:hover { background: #e8f5e9; border-color: var(--accent); }
+        .btn-filter.active { background: var(--accent); color: white; border-color: var(--accent); }
+
         #resultsList { 
             position: absolute; width: 100%; background: white; border: 1px solid #ddd; 
             z-index: 100; max-height: 400px; overflow-y: auto; display: none;
@@ -22,15 +33,14 @@
         }
         .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .result-item:hover { background: #f1f7ff; }
-        .stock-badge { background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; color: #475569; display: inline-block; margin-bottom: 4px; }
         
-        .price-promo { color: #28a745; font-weight: bold; font-size: 1.1em; }
-        .price-equiv { color: #d9534f; font-weight: bold; font-size: 1.1em; }
-        .price-separator { color: #666; margin: 0 5px; font-weight: bold; }
+        .price-promo { color: var(--accent); font-weight: bold; font-size: 1.1em; }
+        .price-equiv { color: var(--danger); font-weight: bold; font-size: 1.1em; }
+        .stock-badge { background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; }
 
-        .factura-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        .factura-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         .factura-table th { background: var(--dark); color: white; padding: 10px; text-align: left; }
-        .factura-table td { padding: 8px; border-bottom: 1px solid #ddd; }
+        .factura-table td { padding: 10px; border-bottom: 1px solid #ddd; }
         
         .totales-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
         .box-total { padding: 15px; border-radius: 8px; border: 1px solid #ddd; text-align: center; }
@@ -38,21 +48,14 @@
         .box-bolivares { background: #ffebee; border-color: var(--danger); }
         
         .val-grande { font-size: 1.6em; font-weight: bold; display: block; }
-        .label-total { font-weight: bold; text-transform: uppercase; font-size: 0.8em; color: #555; }
         .actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
         button { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-print { background: var(--primary); color: white; }
         .btn-clear { background: #666; color: white; }
 
-        .hide-bs, .hide-usd { display: none !important; }
-
         @media print {
             .no-print, .actions, .config-bar, .search-section, .delete-col { display: none !important; }
-            body { background: white; margin: 0; }
-            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; }
-            .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
-            .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
-            .totales-container { grid-template-columns: 1fr; }
+            .factura-header { display: block !important; text-align: center; }
         }
         .factura-header { display: none; }
     </style>
@@ -62,30 +65,25 @@
 <div class="container">
     <div class="factura-header">
         <h1>TECHO FÁCIL</h1>
-        <p>Presupuesto y Facturación</p>
+        <p>Presupuesto y Cotización</p>
         <hr>
     </div>
 
-    <h2 class="no-print">Generador de Factura / Cotización</h2>
+    <h2 class="no-print">Generador de Factura - TechoFácil</h2>
     
     <div class="config-bar no-print">
-        <div>
-            <label>Cargar Inventario:</label>
-            <input type="file" id="upload" accept=".xlsx, .xls">
-        </div>
-        <div>
-            <label>Tasa (Bs):</label>
-            <input type="number" id="tasa" value="36.50" step="0.01">
-        </div>
-        <div>
-            <label>Factor (Margen):</label>
-            <input type="number" id="factor" value="1.45" step="0.01">
-        </div>
+        <div><label>Inventario:</label><input type="file" id="upload" accept=".xlsx, .xls"></div>
+        <div><label>Tasa BCV (Bs):</label><input type="number" id="tasa" value="36.50" step="0.01"></div>
+        <div><label>Factor (Margen):</label><input type="number" id="factor" value="1.45" step="0.01"></div>
     </div>
 
     <div class="search-section no-print">
-        <label><strong>🔍 Buscar Producto (Detalle por palabras):</strong></label>
-        <input type="text" id="search" placeholder="Ej: blanco 2 caras ferranova...">
+        <div class="search-controls">
+            <input type="text" id="search" placeholder="Buscar por detalle (ej: blanco 2 caras)...">
+            <button id="sortPrice" class="btn-filter">
+                <span>📊</span> Ordenar: $ Menor a Mayor
+            </button>
+        </div>
         <div id="resultsList"></div>
     </div>
 
@@ -95,10 +93,10 @@
                 <th>Código</th>
                 <th>Descripción</th>
                 <th>Cant.</th>
-                <th class="col-usd">Costo Unit ($)</th>
-                <th class="col-usd">Subtotal ($)</th>
-                <th class="col-bs">PVP Unit (Bs)</th>
-                <th class="col-bs">Subtotal (Bs)</th>
+                <th class="col-usd">Promo ($)</th>
+                <th class="col-usd">Total ($)</th>
+                <th class="col-bs">PVP (Bs)</th>
+                <th class="col-bs">Total (Bs)</th>
                 <th class="no-print delete-col"></th>
             </tr>
         </thead>
@@ -107,29 +105,29 @@
 
     <div class="totales-container">
         <div id="boxDivisas" class="box-total box-divisas">
-            <span class="label-total">Total en Divisas (Precio Promo)</span>
+            <span class="label-total">PAGO EN DIVISAS</span>
             <span id="totalUSD" class="val-grande" style="color: var(--accent);">$ 0.00</span>
-            <small>Solo aplica para pago en DIVISAS</small>
         </div>
         <div id="boxBolivares" class="box-total box-bolivares">
-            <span class="label-total">Total en Bolívares (PVP Final) SEGUN LA TASA DEL BCV</span>
+            <span class="label-total">PAGO EN BOLÍVARES (TASA BCV)</span>
             <span id="totalBS" class="val-grande" style="color: var(--danger);">Bs. 0,00</span>
-            <span id="equivDolarPVP" class="label-total" style="display:block; margin-top:5px; color:#333; font-weight: bold;">Equiv: $ 0.00</span>
+            <span id="equivDolarPVP" style="display:block; font-weight:bold; color:#333;">Equiv: $ 0.00</span>
         </div>
     </div>
 
     <div class="actions no-print">
         <button class="btn-clear" onclick="limpiar()">Vaciar</button>
-        <button class="btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
+        <button class="btn-print" onclick="prepararImpresion()">🖨️ Imprimir</button>
     </div>
 </div>
 
 <script>
     let inventory = [];
     let cart = [];
+    let isSorted = false; // Estado del filtro de precio
 
+    // Cargar Inventario
     document.getElementById('upload').addEventListener('change', (e) => {
-        const file = e.target.files[0];
         const reader = new FileReader();
         reader.onload = (event) => {
             const data = new Uint8Array(event.target.result);
@@ -138,54 +136,57 @@
             workbook.SheetNames.forEach(sheet => {
                 inventory = inventory.concat(XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
             });
-            alert("Inventario de TechoFácil cargado correctamente.");
+            alert("Inventario Cargado.");
         };
-        reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(e.target.files[0]);
     });
 
     const searchInput = document.getElementById('search');
     const resultsList = document.getElementById('resultsList');
+    const sortBtn = document.getElementById('sortPrice');
 
-    searchInput.addEventListener('input', () => {
+    // Cambiar estado del filtro al hacer clic en el icono
+    sortBtn.onclick = () => {
+        isSorted = !isSorted;
+        sortBtn.classList.toggle('active');
+        ejecutarBusqueda(); // Re-ejecutar búsqueda con el nuevo orden
+    };
+
+    searchInput.addEventListener('input', ejecutarBusqueda);
+
+    function ejecutarBusqueda() {
         const term = searchInput.value.toLowerCase();
         const factor = parseFloat(document.getElementById('factor').value) || 1;
         
         resultsList.innerHTML = '';
         if (term.length < 2) { resultsList.style.display = 'none'; return; }
 
-        // LÓGICA DE BÚSQUEDA POR PALABRAS INDEPENDIENTES
-        const searchWords = term.split(/\s+/).filter(word => word.length > 0);
+        const searchWords = term.split(/\s+/).filter(w => w.length > 0);
 
-        const matches = inventory.filter(item => {
-            // Unimos todos los campos para buscar en ellos
-            const itemString = `
-                ${item.CODIGO || ''} 
-                ${item.PRODUCTO || ''} 
-                ${item.DESCRIPCION || ''} 
-                ${item.MARCA || ''}
-            `.toLowerCase();
+        let matches = inventory.filter(item => {
+            const text = `${item.CODIGO} ${item.PRODUCTO} ${item.DESCRIPCION} ${item.MARCA}`.toLowerCase();
+            return searchWords.every(word => text.includes(word));
+        });
 
-            // Verificamos que TODAS las palabras escritas estén en el item
-            return searchWords.every(word => itemString.includes(word));
-        }).slice(0, 50);
+        // MEJORA: Aplicar orden de precio si el filtro está activo
+        if (isSorted) {
+            matches.sort((a, b) => parseFloat(a.PROMO || 0) - parseFloat(b.PROMO || 0));
+        }
 
-        matches.forEach(item => {
-            const precioPromo = parseFloat(item.PROMO || 0);
-            const precioEquivDolar = precioPromo * factor;
+        matches.slice(0, 50).forEach(item => {
+            const pPromo = parseFloat(item.PROMO || 0);
+            const pPvp = pPromo * factor;
 
             const div = document.createElement('div');
             div.className = 'result-item';
             div.innerHTML = `
                 <div>
-                    <small style="color:blue">#${item.CODIGO || 'S/C'}</small>
-                    <small style="background:#eee; padding:2px 5px; border-radius:3px; margin-left:5px;">${item.MARCA || 'TechoFácil'}</small><br>
-                    <strong>${item.PRODUCTO || item.DESCRIPCION}</strong>
+                    <small style="color:blue">#${item.CODIGO || 'S/C'}</small> <strong>${item.PRODUCTO || item.DESCRIPCION}</strong><br>
+                    <small>${item.MARCA || 'TechoFácil'}</small>
                 </div>
                 <div style="text-align: right">
-                    <span class="stock-badge">Stock: ${item.EXISTENCIA || 0}</span><br>
-                    <span class="price-promo">$${precioPromo.toFixed(2)}</span>
-                    <span class="price-separator">/</span>
-                    <span class="price-equiv">$${precioEquivDolar.toFixed(2)}</span>
+                    <span class="price-promo">$${pPromo.toFixed(2)}</span><br>
+                    <span class="stock-badge">Stock: ${item.EXISTENCIA || 0}</span>
                 </div>
             `;
             
@@ -194,16 +195,12 @@
                 if (cant > 0) {
                     const f = parseFloat(document.getElementById('factor').value);
                     const t = parseFloat(document.getElementById('tasa').value);
+                    // Guardamos todo para mantener los precios al "retroceder"
                     cart.push({
-                        cod: item.CODIGO || 'S/C',
-                        n: item.PRODUCTO || item.DESCRIPCION,
-                        c: parseInt(cant),
-                        p: precioPromo, 
-                        pvp: precioPromo * f, 
-                        bs: (precioPromo * f) * t 
+                        cod: item.CODIGO, n: item.PRODUCTO || item.DESCRIPCION,
+                        c: parseInt(cant), p: pPromo, f: f, t: t
                     });
                     actualizar();
-                    setTimeout(()=>searchInput.focus(), 100);
                 }
                 resultsList.style.display = 'none';
                 searchInput.value = '';
@@ -211,58 +208,56 @@
             resultsList.appendChild(div);
         });
         resultsList.style.display = 'block';
-    });
+    }
 
     function actualizar() {
         const body = document.querySelector('#facturaTable tbody');
         body.innerHTML = '';
-        let tPromo = 0, tBs = 0, tPvpDolarTotal = 0;
+        let tPromo = 0, tBs = 0, tPvpDolar = 0;
 
         cart.forEach((item, i) => {
-            const subPromo = item.p * item.c;
-            const subBs = item.bs * item.c;
-            const subPvpDolar = item.pvp * item.c;
+            const unitPvp = item.p * item.f;
+            const unitBs = unitPvp * item.t;
             
+            const subPromo = item.p * item.c;
+            const subPvp = unitPvp * item.c;
+            const subBs = unitBs * item.c;
+
             tPromo += subPromo;
+            tPvpDolar += subPvp;
             tBs += subBs;
-            tPvpDolarTotal += subPvpDolar;
 
             body.innerHTML += `<tr>
-                <td style="color:#666">#${item.cod}</td>
+                <td>#${item.cod}</td>
                 <td>${item.n}</td>
                 <td>${item.c}</td>
                 <td class="col-usd">$ ${item.p.toFixed(2)}</td>
                 <td class="col-usd">$ ${subPromo.toFixed(2)}</td>
-                <td class="col-bs">Bs. ${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}</td>
+                <td class="col-bs">Bs. ${unitBs.toLocaleString('es-VE', {minimumFractionDigits:2})}</td>
                 <td class="col-bs"><strong>Bs. ${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}</strong></td>
-                <td class="no-print"><button onclick="cart.splice(${i},1);actualizar()" style="color:red;border:none;background:none;cursor:pointer;">❌</button></td>
+                <td class="no-print"><button onclick="cart.splice(${i},1);actualizar()" style="color:red; background:none; font-size:18px;">×</button></td>
             </tr>`;
         });
 
         document.getElementById('totalUSD').innerText = `$ ${tPromo.toFixed(2)}`;
         document.getElementById('totalBS').innerText = `Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}`;
-        document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolarTotal.toFixed(2)}`;
+        document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolar.toFixed(2)}`;
     }
 
     function prepararImpresion() {
-        if (cart.length === 0) return alert("Agregue productos primero.");
-        const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
+        if (cart.length === 0) return;
+        const op = prompt("1. Ver solo Divisas ($ Promo)\n2. Ver solo Bolívares (PVP)", "1");
+        document.querySelectorAll('.col-bs, #boxBolivares, .col-usd, #boxDivisas').forEach(el => el.style.display = '');
 
-        document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.remove('hide-bs'));
-        document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.remove('hide-usd'));
-
-        if (opcion === "1") {
-            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.add('hide-bs'));
-            window.print();
-        } else if (opcion === "2") {
-            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
-            window.print();
-        } else {
-            alert("Selección cancelada.");
+        if (op === "1") {
+            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.style.setProperty('display', 'none', 'important'));
+        } else if (op === "2") {
+            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.style.setProperty('display', 'none', 'important'));
         }
+        window.print();
     }
 
-    function limpiar() { if(confirm("¿Deseas vaciar la factura actual?")) { cart = []; actualizar(); } }
+    function limpiar() { if(confirm("¿Vaciar factura?")) { cart = []; actualizar(); } }
 </script>
 </body>
 </html>
