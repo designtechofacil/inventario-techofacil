@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Facturación - TechoFácil</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #0056b3; --accent: #28a745; --danger: #d9534f; --dark: #2c3e50; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 20px; background-color: #f0f4f8; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        
+        .no-print { display: block; }
+        .config-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 8px; }
+        .search-section { position: relative; margin-bottom: 30px; }
+        input { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        
+        #resultsList { 
+            position: absolute; width: 100%; background: white; border: 1px solid #ddd; 
+            z-index: 100; max-height: 400px; overflow-y: auto; display: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 0 0 8px 8px;
+        }
+        .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .result-item:hover { background: #f1f7ff; }
+        .stock-badge { background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; color: #475569; display: inline-block; margin-bottom: 4px; }
+        
+        .price-promo { color: #28a745; font-weight: bold; font-size: 1.1em; }
+        .price-equiv { color: #d9534f; font-weight: bold; font-size: 1.1em; }
+        .price-separator { color: #666; margin: 0 5px; font-weight: bold; }
+
+        .factura-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
+        .factura-table th { background: var(--dark); color: white; padding: 10px; text-align: left; }
+        .factura-table td { padding: 8px; border-bottom: 1px solid #ddd; }
+        
+        .totales-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .box-total { padding: 15px; border-radius: 8px; border: 1px solid #ddd; text-align: center; }
+        .box-divisas { background: #e8f5e9; border-color: var(--accent); }
+        .box-bolivares { background: #ffebee; border-color: var(--danger); }
+        
+        .val-grande { font-size: 1.6em; font-weight: bold; display: block; }
+        .label-total { font-weight: bold; text-transform: uppercase; font-size: 0.8em; color: #555; }
+        .actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+        button { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-print { background: var(--primary); color: white; }
+        .btn-clear { background: #666; color: white; }
+
+        .hide-bs, .hide-usd { display: none !important; }
+
+        @media print {
+            .no-print, .actions, .config-bar, .search-section, .delete-col { display: none !important; }
+            body { background: white; margin: 0; }
+            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; }
+            .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
+            .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
+            .totales-container { grid-template-columns: 1fr; }
+        }
+        .factura-header { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="factura-header">
+        <h1>TECHO FÁCIL</h1>
+        <p>Presupuesto y Facturación</p>
+        <hr>
+    </div>
+
+    <h2 class="no-print">Generador de Factura / Cotización</h2>
+    
+    <div class="config-bar no-print">
+        <div>
+            <label>Cargar Inventario:</label>
+            <input type="file" id="upload" accept=".xlsx, .xls">
+        </div>
+        <div>
+            <label>Tasa (Bs):</label>
+            <input type="number" id="tasa" value="36.50" step="0.01">
+        </div>
+        <div>
+            <label>Factor (Margen):</label>
+            <input type="number" id="factor" value="1.45" step="0.01">
+        </div>
+    </div>
+
+    <div class="search-section no-print">
+        <label><strong>🔍 Buscar Producto (Detalle por palabras):</strong></label>
+        <input type="text" id="search" placeholder="Ej: blanco 2 caras ferranova...">
+        <div id="resultsList"></div>
+    </div>
+
+    <table class="factura-table" id="facturaTable">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Descripción</th>
+                <th>Cant.</th>
+                <th class="col-usd">Costo Unit ($)</th>
+                <th class="col-usd">Subtotal ($)</th>
+                <th class="col-bs">PVP Unit (Bs)</th>
+                <th class="col-bs">Subtotal (Bs)</th>
+                <th class="no-print delete-col"></th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div class="totales-container">
+        <div id="boxDivisas" class="box-total box-divisas">
+            <span class="label-total">Total en Divisas (Precio Promo)</span>
+            <span id="totalUSD" class="val-grande" style="color: var(--accent);">$ 0.00</span>
+            <small>Solo aplica para pago en DIVISAS</small>
+        </div>
+        <div id="boxBolivares" class="box-total box-bolivares">
+            <span class="label-total">Total en Bolívares (PVP Final) SEGUN LA TASA DEL BCV</span>
+            <span id="totalBS" class="val-grande" style="color: var(--danger);">Bs. 0,00</span>
+            <span id="equivDolarPVP" class="label-total" style="display:block; margin-top:5px; color:#333; font-weight: bold;">Equiv: $ 0.00</span>
+        </div>
+    </div>
+
+    <div class="actions no-print">
+        <button class="btn-clear" onclick="limpiar()">Vaciar</button>
+        <button class="btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
+    </div>
+</div>
+
+<script>
+    let inventory = [];
+    let cart = [];
+
+    document.getElementById('upload').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const data = new Uint8Array(event.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            inventory = [];
+            workbook.SheetNames.forEach(sheet => {
+                inventory = inventory.concat(XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
+            });
+            alert("Inventario de TechoFácil cargado correctamente.");
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    const searchInput = document.getElementById('search');
+    const resultsList = document.getElementById('resultsList');
+
+    searchInput.addEventListener('input', () => {
+        const term = searchInput.value.toLowerCase();
+        const factor = parseFloat(document.getElementById('factor').value) || 1;
+        
+        resultsList.innerHTML = '';
+        if (term.length < 2) { resultsList.style.display = 'none'; return; }
+
+        // LÓGICA DE BÚSQUEDA POR PALABRAS INDEPENDIENTES
+        const searchWords = term.split(/\s+/).filter(word => word.length > 0);
+
+        const matches = inventory.filter(item => {
+            // Unimos todos los campos para buscar en ellos
+            const itemString = `
+                ${item.CODIGO || ''} 
+                ${item.PRODUCTO || ''} 
+                ${item.DESCRIPCION || ''} 
+                ${item.MARCA || ''}
+            `.toLowerCase();
+
+            // Verificamos que TODAS las palabras escritas estén en el item
+            return searchWords.every(word => itemString.includes(word));
+        }).slice(0, 50);
+
+        matches.forEach(item => {
+            const precioPromo = parseFloat(item.PROMO || 0);
+            const precioEquivDolar = precioPromo * factor;
+
+            const div = document.createElement('div');
+            div.className = 'result-item';
+            div.innerHTML = `
+                <div>
+                    <small style="color:blue">#${item.CODIGO || 'S/C'}</small>
+                    <small style="background:#eee; padding:2px 5px; border-radius:3px; margin-left:5px;">${item.MARCA || 'TechoFácil'}</small><br>
+                    <strong>${item.PRODUCTO || item.DESCRIPCION}</strong>
+                </div>
+                <div style="text-align: right">
+                    <span class="stock-badge">Stock: ${item.EXISTENCIA || 0}</span><br>
+                    <span class="price-promo">$${precioPromo.toFixed(2)}</span>
+                    <span class="price-separator">/</span>
+                    <span class="price-equiv">$${precioEquivDolar.toFixed(2)}</span>
+                </div>
+            `;
+            
+            div.onclick = () => {
+                const cant = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}`, "1");
+                if (cant > 0) {
+                    const f = parseFloat(document.getElementById('factor').value);
+                    const t = parseFloat(document.getElementById('tasa').value);
+                    cart.push({
+                        cod: item.CODIGO || 'S/C',
+                        n: item.PRODUCTO || item.DESCRIPCION,
+                        c: parseInt(cant),
+                        p: precioPromo, 
+                        pvp: precioPromo * f, 
+                        bs: (precioPromo * f) * t 
+                    });
+                    actualizar();
+                    setTimeout(()=>searchInput.focus(), 100);
+                }
+                resultsList.style.display = 'none';
+                searchInput.value = '';
+            };
+            resultsList.appendChild(div);
+        });
+        resultsList.style.display = 'block';
+    });
+
+    function actualizar() {
+        const body = document.querySelector('#facturaTable tbody');
+        body.innerHTML = '';
+        let tPromo = 0, tBs = 0, tPvpDolarTotal = 0;
+
+        cart.forEach((item, i) => {
+            const subPromo = item.p * item.c;
+            const subBs = item.bs * item.c;
+            const subPvpDolar = item.pvp * item.c;
+            
+            tPromo += subPromo;
+            tBs += subBs;
+            tPvpDolarTotal += subPvpDolar;
+
+            body.innerHTML += `<tr>
+                <td style="color:#666">#${item.cod}</td>
+                <td>${item.n}</td>
+                <td>${item.c}</td>
+                <td class="col-usd">$ ${item.p.toFixed(2)}</td>
+                <td class="col-usd">$ ${subPromo.toFixed(2)}</td>
+                <td class="col-bs">Bs. ${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}</td>
+                <td class="col-bs"><strong>Bs. ${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}</strong></td>
+                <td class="no-print"><button onclick="cart.splice(${i},1);actualizar()" style="color:red;border:none;background:none;cursor:pointer;">❌</button></td>
+            </tr>`;
+        });
+
+        document.getElementById('totalUSD').innerText = `$ ${tPromo.toFixed(2)}`;
+        document.getElementById('totalBS').innerText = `Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}`;
+        document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolarTotal.toFixed(2)}`;
+    }
+
+    function prepararImpresion() {
+        if (cart.length === 0) return alert("Agregue productos primero.");
+        const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
+
+        document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.remove('hide-bs'));
+        document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.remove('hide-usd'));
+
+        if (opcion === "1") {
+            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.add('hide-bs'));
+            window.print();
+        } else if (opcion === "2") {
+            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
+            window.print();
+        } else {
+            alert("Selección cancelada.");
+        }
+    }
+
+    function limpiar() { if(confirm("¿Deseas vaciar la factura actual?")) { cart = []; actualizar(); } }
+</script>
+</body>
+</html>
