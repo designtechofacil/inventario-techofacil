@@ -12,9 +12,28 @@
         
         .no-print { display: block; }
         .config-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 8px; }
-        .search-section { position: relative; margin-bottom: 30px; }
-        input { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
+        /* Estilos del Buscador y Botón de Filtro */
+        .search-section { position: relative; margin-bottom: 30px; }
+        .search-container { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
+        input[type="text"] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        
+        .btn-sort { 
+            background: white; 
+            border: 1px solid #ccc; 
+            border-radius: 6px; 
+            padding: 0 15px; 
+            height: 46px; 
+            cursor: pointer; 
+            font-size: 0.9em; 
+            white-space: nowrap;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-sort:hover { background: #f0f0f0; border-color: var(--primary); color: var(--primary); }
+
         #resultsList { 
             position: absolute; width: 100%; background: white; border: 1px solid #ddd; 
             z-index: 100; max-height: 400px; overflow-y: auto; display: none;
@@ -40,7 +59,8 @@
         .val-grande { font-size: 1.6em; font-weight: bold; display: block; }
         .label-total { font-weight: bold; text-transform: uppercase; font-size: 0.8em; color: #555; }
         .actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
-        button { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        
+        button.main-btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-print { background: var(--primary); color: white; }
         .btn-clear { background: #666; color: white; }
 
@@ -85,7 +105,12 @@
 
     <div class="search-section no-print">
         <label><strong>🔍 Buscar Producto (Detalle por palabras):</strong></label>
-        <input type="text" id="search" placeholder="Ej: blanco 2 caras ferranova...">
+        <div class="search-container">
+            <input type="text" id="search" placeholder="Ej: blanco 2 caras ferranova...">
+            <button class="btn-sort" id="btnSort" onclick="ordenarPorPrecio()" title="Ordenar por precio">
+                <span>⇅</span> Ordenar
+            </button>
+        </div>
         <div id="resultsList"></div>
     </div>
 
@@ -119,14 +144,15 @@
     </div>
 
     <div class="actions no-print">
-        <button class="btn-clear" onclick="limpiar()">Vaciar</button>
-        <button class="btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
+        <button class="main-btn btn-clear" onclick="limpiar()">Vaciar</button>
+        <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
     </div>
 </div>
 
 <script>
     let inventory = [];
     let cart = [];
+    let ordenAsc = true; // Control de estado para el ordenamiento
 
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -143,6 +169,28 @@
         reader.readAsArrayBuffer(file);
     });
 
+    // Función para ordenar el inventario por precio
+    function ordenarPorPrecio() {
+        if (inventory.length === 0) return alert("Cargue un inventario primero.");
+        
+        inventory.sort((a, b) => {
+            const precioA = parseFloat(a.PROMO || 0);
+            const precioB = parseFloat(b.PROMO || 0);
+            return ordenAsc ? precioA - precioB : precioB - precioA;
+        });
+
+        const btn = document.getElementById('btnSort');
+        btn.innerHTML = ordenAsc ? "↑ Menor Precio" : "↓ Mayor Precio";
+        ordenAsc = !ordenAsc;
+
+        // Si hay algo escrito en el buscador, refrescar la lista
+        if (searchInput.value.length >= 2) {
+            searchInput.dispatchEvent(new Event('input'));
+        } else {
+            alert("Inventario ordenado. Realice una búsqueda para ver los resultados.");
+        }
+    }
+
     const searchInput = document.getElementById('search');
     const resultsList = document.getElementById('resultsList');
 
@@ -153,19 +201,15 @@
         resultsList.innerHTML = '';
         if (term.length < 2) { resultsList.style.display = 'none'; return; }
 
-        // LÓGICA DE BÚSQUEDA POR PALABRAS INDEPENDIENTES
         const searchWords = term.split(/\s+/).filter(word => word.length > 0);
 
         const matches = inventory.filter(item => {
-            // Unimos todos los campos para buscar en ellos
             const itemString = `
                 ${item.CODIGO || ''} 
                 ${item.PRODUCTO || ''} 
                 ${item.DESCRIPCION || ''} 
                 ${item.MARCA || ''}
             `.toLowerCase();
-
-            // Verificamos que TODAS las palabras escritas estén en el item
             return searchWords.every(word => itemString.includes(word));
         }).slice(0, 50);
 
