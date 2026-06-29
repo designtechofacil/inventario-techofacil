@@ -1,47 +1,46 @@
-<!DOCTYPE html>
+<!<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Facturación - TechoFácil</title>
+    <title>Sistema de Facturación y Balance - TechoFácil</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #0056b3; --accent: #28a745; --danger: #d9534f; --dark: #2c3e50; }
+        :root { 
+            --primary: #0056b3; 
+            --accent: #28a745; 
+            --danger: #d9534f; 
+            --dark: #2c3e50;
+            --warning: #f39c12;
+            --neutral: #7f8c8d;
+        }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 20px; background-color: #f0f4f8; }
-        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
         
         .no-print { display: block; }
         .config-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 8px; }
         
-        /* Estilos del Buscador y Botón de Filtro */
+        /* Buscador */
         .search-section { position: relative; margin-bottom: 30px; }
         .search-container { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
-        input[type="text"] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        input[type="text"], input[type="number"] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
         .btn-sort { 
-            background: white; 
-            border: 1px solid #ccc; 
-            border-radius: 6px; 
-            padding: 0 15px; 
-            height: 46px; 
-            cursor: pointer; 
-            font-size: 0.9em; 
-            white-space: nowrap;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            background: white; border: 1px solid #ccc; border-radius: 6px; padding: 0 15px; height: 46px; cursor: pointer; font-size: 0.9em; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
         }
         .btn-sort:hover { background: #f0f0f0; border-color: var(--primary); color: var(--primary); }
 
         #resultsList { 
-            position: absolute; width: 100%; background: white; border: 1px solid #ddd; 
-            z-index: 100; max-height: 400px; overflow-y: auto; display: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 0 0 8px 8px;
+            position: absolute; width: 100%; background: white; border: 1px solid #ddd; z-index: 100; max-height: 400px; overflow-y: auto; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 0 0 8px 8px;
         }
         .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
         .result-item:hover { background: #f1f7ff; }
-        .stock-badge { background: #e2e8f0; padding: 2px 8px; border-radius: 4px; font-size: 0.85em; color: #475569; display: inline-block; margin-bottom: 4px; }
+        
+        /* Alertas de color para existencias */
+        .stock-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; color: white; display: inline-block; margin-bottom: 4px; background: var(--neutral); }
+        .stock-red { background-color: var(--danger) !important; }
+        .stock-orange { background-color: var(--warning) !important; }
+        .stock-green { background-color: var(--accent) !important; }
         
         .price-promo { color: #28a745; font-weight: bold; font-size: 1.1em; }
         .price-equiv { color: #d9534f; font-weight: bold; font-size: 1.1em; }
@@ -64,10 +63,35 @@
         .btn-print { background: var(--primary); color: white; }
         .btn-clear { background: #666; color: white; }
 
+        /* --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- */
+        .balance-section { margin-top: 35px; border-top: 3px solid var(--dark); padding-top: 20px; }
+        
+        /* Botones de métricas rápidas interactivos */
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .metric-card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 3px solid transparent; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; user-select: none; }
+        .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        
+        .card-red { background-color: var(--danger); }
+        .card-orange { background-color: var(--warning); }
+        .card-green { background-color: var(--accent); }
+        .card-total { background-color: var(--dark); }
+        
+        /* Efecto de botón activo */
+        .metric-card.active-filter { border-color: #000; box-shadow: inset 0 0 10px rgba(0,0,0,0.3); transform: scale(0.98); }
+        
+        .metric-val { display: block; font-size: 1.8em; font-weight: 1000; }
+
+        .balance-header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+        .balance-container { max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
+        .balance-table { width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; }
+        .balance-table th { background: #34495e; color: white; padding: 12px; position: sticky; top: 0; }
+        .balance-table td { padding: 10px 12px; border-bottom: 1px solid #eee; background: white; }
+        .balance-table tr:hover td { background-color: #f1f5f9; }
+
         .hide-bs, .hide-usd { display: none !important; }
 
         @media print {
-            .no-print, .actions, .config-bar, .search-section, .delete-col { display: none !important; }
+            .no-print, .actions, .config-bar, .search-section, .delete-col, .balance-section { display: none !important; }
             body { background: white; margin: 0; }
             .container { box-shadow: none; border: none; width: 100%; max-width: 100%; }
             .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
@@ -80,6 +104,7 @@
 <body>
 
 <div class="container">
+    <!-- SECCIÓN FACTURACIÓN -->
     <div class="factura-header">
         <h1>TECHO FÁCIL</h1>
         <p>Presupuesto y Facturación</p>
@@ -147,12 +172,64 @@
         <button class="main-btn btn-clear" onclick="limpiar()">Vaciar</button>
         <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
     </div>
+
+    <!-- --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- -->
+    <div class="balance-section no-print">
+        <div class="balance-header-row">
+            <h2>📊 Balance General de Existencias</h2>
+            <div style="width: 300px;">
+                <input type="text" id="searchBalance" placeholder="🔍 Filtrar balance por nombre o código...">
+            </div>
+        </div>
+
+        <!-- Indicadores / Botones del Balance -->
+        <div class="metrics-grid">
+            <div class="metric-card card-total active-filter" id="btnFilterAll" onclick="cambiarFiltroRango('all', this)">
+                <span class="metric-val" id="metaTotal">0</span>
+                Productos Totales
+            </div>
+            <div class="metric-card card-red" id="btnFilterRed" onclick="cambiarFiltroRango('red', this)">
+                <span class="metric-val" id="metaRed">0</span>
+                Crítico (Menos de 5)
+            </div>
+            <div class="metric-card card-orange" id="btnFilterOrange" onclick="cambiarFiltroRango('orange', this)">
+                <span class="metric-val" id="metaOrange">0</span>
+                Alerta (Más de 10)
+            </div>
+            <div class="metric-card card-green" id="btnFilterGreen" onclick="cambiarFiltroRango('green', this)">
+                <span class="metric-val" id="metaGreen">0</span>
+                Óptimo (Más de 20)
+            </div>
+        </div>
+
+        <!-- Tabla del Balance -->
+        <div class="balance-container">
+            <table class="balance-table" id="balanceTable">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Marca</th>
+                        <th>Producto / Descripción</th>
+                        <th style="text-align: right;">Precio Promo ($)</th>
+                        <th style="text-align: center; width: 150px;">Existencia Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: #888; padding: 30px;">Cargue el archivo Excel para procesar el balance de inventario.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
 </div>
 
 <script>
     let inventory = [];
     let cart = [];
-    let ordenAsc = true; // Control de estado para el ordenamiento
+    let ordenAsc = true;
+    let currentStockFilter = 'all'; // Rastrea qué botón de rango está activo
 
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -165,11 +242,105 @@
                 inventory = inventory.concat(XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
             });
             alert("Inventario de TechoFácil cargado correctamente.");
+            
+            // Forzar volver al filtro 'Todos' al cargar un archivo nuevo
+            document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
+            document.getElementById('btnFilterAll').classList.add('active-filter');
+            currentStockFilter = 'all';
+            
+            procesarYRenderBalance();
         };
         reader.readAsArrayBuffer(file);
     });
 
-    // Función para ordenar el inventario por precio
+    function getStockClass(existencia) {
+        const stock = parseFloat(existencia || 0);
+        if (stock < 5) return 'stock-red';
+        if (stock > 20) return 'stock-green';
+        if (stock > 10) return 'stock-orange';
+        return '';
+    }
+
+    // Ejecuta los filtros cruzados (Rango seleccionado + Input de texto)
+    function procesarYRenderBalance() {
+        let critico = 0, alerta = 0, optimo = 0;
+
+        // 1. Calcular contadores fijos basados SIEMPRE en el inventario bruto global
+        inventory.forEach(item => {
+            const stock = parseFloat(item.EXISTENCIA || 0);
+            if (stock < 5) critico++;
+            else if (stock > 20) optimo++;
+            else if (stock > 10) alerta++;
+        });
+
+        document.getElementById('metaTotal').innerText = inventory.length;
+        document.getElementById('metaRed').innerText = critico;
+        document.getElementById('metaOrange').innerText = alerta;
+        document.getElementById('metaGreen').innerText = optimo;
+
+        // 2. Aplicar filtro del Botón de Rango de Existencias activo
+        let datosFiltrados = inventory.filter(item => {
+            const stock = parseFloat(item.EXISTENCIA || 0);
+            if (currentStockFilter === 'red') return stock < 5;
+            if (currentStockFilter === 'orange') return stock > 10 && stock <= 20;
+            if (currentStockFilter === 'green') return stock > 20;
+            return true; // 'all'
+        });
+
+        // 3. Aplicar de forma cruzada el filtro escrito en el input de texto (si tiene contenido)
+        const term = document.getElementById('searchBalance').value.toLowerCase();
+        if (term) {
+            datosFiltrados = datosFiltrados.filter(item => {
+                return (item.CODIGO || '').toString().toLowerCase().includes(term) ||
+                       (item.PRODUCTO || item.DESCRIPCION || '').toLowerCase().includes(term) ||
+                       (item.MARCA || '').toLowerCase().includes(term);
+            });
+        }
+
+        // 4. Pintar resultados en la tabla
+        const tbody = document.querySelector('#balanceTable tbody');
+        tbody.innerHTML = '';
+
+        if (datosFiltrados.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 20px;">No hay productos en este rango o coincidentes con la búsqueda.</td></tr>`;
+            return;
+        }
+
+        datosFiltrados.forEach(item => {
+            const stockVal = item.EXISTENCIA || 0;
+            const colorClass = getStockClass(stockVal);
+            const precioPromo = parseFloat(item.PROMO || 0);
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="color:#4a5568; font-weight:600;">#${item.CODIGO || 'S/C'}</td>
+                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-size:0.9em;">${item.MARCA || 'TechoFácil'}</span></td>
+                <td><strong>${item.PRODUCTO || item.DESCRIPCION || 'Sin descripción'}</strong></td>
+                <td style="text-align: right; font-weight: bold; color: var(--accent);">$ ${precioPromo.toFixed(2)}</td>
+                <td style="text-align: center;"><span class="stock-badge ${colorClass}">${stockVal}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Función ejecutada al hacer clic en los botones de métricas
+    function cambiarFiltroRango(rango, elementoCard) {
+        if (inventory.length === 0) return;
+        
+        // Manejo visual del botón activo
+        document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active-filter'));
+        elementoCard.classList.add('active-filter');
+        
+        // Guardar el filtro y procesar la tabla
+        currentStockFilter = rango;
+        procesarYRenderBalance();
+    }
+
+    // Listener del input de texto (ahora llama a la función unificada)
+    document.getElementById('searchBalance').addEventListener('input', () => {
+        procesarYRenderBalance();
+    });
+
     function ordenarPorPrecio() {
         if (inventory.length === 0) return alert("Cargue un inventario primero.");
         
@@ -183,12 +354,10 @@
         btn.innerHTML = ordenAsc ? "↑ Menor Precio" : "↓ Mayor Precio";
         ordenAsc = !ordenAsc;
 
-        // Si hay algo escrito en el buscador, refrescar la lista
         if (searchInput.value.length >= 2) {
             searchInput.dispatchEvent(new Event('input'));
-        } else {
-            alert("Inventario ordenado. Realice una búsqueda para ver los resultados.");
         }
+        procesarYRenderBalance();
     }
 
     const searchInput = document.getElementById('search');
@@ -216,6 +385,8 @@
         matches.forEach(item => {
             const precioPromo = parseFloat(item.PROMO || 0);
             const precioEquivDolar = precioPromo * factor;
+            const stockVal = item.EXISTENCIA || 0;
+            const colorClass = getStockClass(stockVal);
 
             const div = document.createElement('div');
             div.className = 'result-item';
@@ -226,7 +397,7 @@
                     <strong>${item.PRODUCTO || item.DESCRIPCION}</strong>
                 </div>
                 <div style="text-align: right">
-                    <span class="stock-badge">Stock: ${item.EXISTENCIA || 0}</span><br>
+                    <span class="stock-badge ${colorClass}">Stock: ${stockVal}</span><br>
                     <span class="price-promo">$${precioPromo.toFixed(2)}</span>
                     <span class="price-separator">/</span>
                     <span class="price-equiv">$${precioEquivDolar.toFixed(2)}</span>
