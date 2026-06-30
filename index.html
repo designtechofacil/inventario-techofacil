@@ -42,6 +42,22 @@
         .stock-orange { background-color: var(--warning) !important; }
         .stock-green { background-color: var(--accent) !important; }
         
+        /* Animación parpadeante para Existencia Cero */
+        @keyframes parpadeo-alerta {
+            0% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
+            50% { background-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.8); }
+            100% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
+        }
+        .stock-agotado {
+            animation: parpadeo-alerta 1.5s infinite;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            color: white;
+            display: inline-block;
+        }
+        
         .price-promo { color: #28a745; font-weight: bold; font-size: 1.1em; }
         .price-equiv { color: #d9534f; font-weight: bold; font-size: 1.1em; }
         .price-separator { color: #666; margin: 0 5px; font-weight: bold; }
@@ -93,23 +109,17 @@
         /* Clases auxiliares para la impresión dirigida */
         .print-only { display: none; }
 
-        /* ==========================================
-           MODO DE IMPRESIÓN GENERAL COINCIDENTE
-           ========================================== */
+        /* Modo de impresión general estructurado */
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
-            
-            /* Ocultar interfaces innecesarias */
             .no-print, .actions, .config-bar, .search-section, .delete-col, #resultsList { display: none !important; }
             
-            /* Imprimir Factura por defecto si no se fuerza el balance */
             body:not(.print-balance-mode) .balance-section { display: none !important; }
             body:not(.print-balance-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
             body:not(.print-balance-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
             body:not(.print-balance-mode) .totales-container { grid-template-columns: 1fr; }
 
-            /* Modo de impresión exclusivo para el Balance */
             body.print-balance-mode .container > *:not(.balance-section) { display: none !important; }
             body.print-balance-mode .balance-section { display: block !important; margin: 0; padding: 0; border: none; }
             body.print-balance-mode .balance-header-row, body.print-balance-mode .metrics-grid { display: none !important; }
@@ -222,15 +232,15 @@
             </div>
             <div class="metric-card card-red" id="btnFilterRed" onclick="cambiarFiltroRango('red', this)">
                 <span class="metric-val" id="metaRed">0</span>
-                Crítico (Menos de 5)
+                Crítico / Agotado (< 5)
             </div>
             <div class="metric-card card-orange" id="btnFilterOrange" onclick="cambiarFiltroRango('orange', this)">
                 <span class="metric-val" id="metaOrange">0</span>
-                Alerta (Más de 10)
+                Alerta (10 - 20)
             </div>
             <div class="metric-card card-green" id="btnFilterGreen" onclick="cambiarFiltroRango('green', this)">
                 <span class="metric-val" id="metaGreen">0</span>
-                Óptimo (Más de 20)
+                Óptimo (> 20)
             </div>
         </div>
 
@@ -260,8 +270,8 @@
     let inventory = [];
     let cart = [];
     let ordenAsc = true;
-    let currentStockFilter = 'all'; // Rastrea qué botón de rango está activo
-    let datosFiltradosGlobal = []; // Guarda el estado actual filtrado para exportar o imprimir
+    let currentStockFilter = 'all'; 
+    let datosFiltradosGlobal = []; 
 
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -275,7 +285,6 @@
             });
             alert("Inventario de TechoFácil cargado correctamente.");
             
-            // Forzar volver al filtro 'Todos' al cargar un archivo nuevo
             document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
             document.getElementById('btnFilterAll').classList.add('active-filter');
             currentStockFilter = 'all';
@@ -285,19 +294,19 @@
         reader.readAsArrayBuffer(file);
     });
 
+    // Devuelve la clase CSS correspondiente al stock
     function getStockClass(existencia) {
         const stock = parseFloat(existencia || 0);
+        if (stock <= 0) return 'stock-agotado'; // <-- Alerta crítica parpadeante para stock 0
         if (stock < 5) return 'stock-red';
         if (stock > 20) return 'stock-green';
         if (stock > 10) return 'stock-orange';
         return '';
     }
 
-    // Ejecuta los filtros cruzados (Rango seleccionado + Input de texto)
     function procesarYRenderBalance() {
         let critico = 0, alerta = 0, optimo = 0;
 
-        // 1. Calcular contadores fijos basados SIEMPRE en el inventario bruto global
         inventory.forEach(item => {
             const stock = parseFloat(item.EXISTENCIA || 0);
             if (stock < 5) critico++;
@@ -310,16 +319,14 @@
         document.getElementById('metaOrange').innerText = alerta;
         document.getElementById('metaGreen').innerText = optimo;
 
-        // 2. Aplicar filtro del Botón de Rango de Existencias activo
         datosFiltradosGlobal = inventory.filter(item => {
             const stock = parseFloat(item.EXISTENCIA || 0);
             if (currentStockFilter === 'red') return stock < 5;
             if (currentStockFilter === 'orange') return stock > 10 && stock <= 20;
             if (currentStockFilter === 'green') return stock > 20;
-            return true; // 'all'
+            return true; 
         });
 
-        // 3. Aplicar de forma cruzada el filtro escrito en el input de texto (si tiene contenido)
         const term = document.getElementById('searchBalance').value.toLowerCase();
         if (term) {
             datosFiltradosGlobal = datosFiltradosGlobal.filter(item => {
@@ -329,7 +336,6 @@
             });
         }
 
-        // 4. Pintar resultados en la tabla
         const tbody = document.querySelector('#balanceTable tbody');
         tbody.innerHTML = '';
 
@@ -339,9 +345,11 @@
         }
 
         datosFiltradosGlobal.forEach(item => {
-            const stockVal = item.EXISTENCIA || 0;
+            const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
+
+            const labelStock = stockVal <= 0 ? "AGOTADO (0)" : stockVal;
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -349,26 +357,20 @@
                 <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-size:0.9em;">${item.MARCA || 'TechoFácil'}</span></td>
                 <td><strong>${item.PRODUCTO || item.DESCRIPCION || 'Sin descripción'}</strong></td>
                 <td style="text-align: right; font-weight: bold; color: var(--accent);">$ ${precioPromo.toFixed(2)}</td>
-                <td style="text-align: center;"><span class="stock-badge ${colorClass}">${stockVal}</span></td>
+                <td style="text-align: center;"><span class="${colorClass === 'stock-agotado' ? 'stock-agotado' : 'stock-badge ' + colorClass}">${labelStock}</span></td>
             `;
             tbody.appendChild(tr);
         });
     }
 
-    // Función ejecutada al hacer clic en los botones de métricas
     function cambiarFiltroRango(rango, elementoCard) {
         if (inventory.length === 0) return;
-        
-        // Manejo visual del botón activo
         document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active-filter'));
         elementoCard.classList.add('active-filter');
-        
-        // Guardar el filtro y procesar la tabla
         currentStockFilter = rango;
         procesarYRenderBalance();
     }
 
-    // Listener del input de texto (ahora llama a la función unificada)
     document.getElementById('searchBalance').addEventListener('input', () => {
         procesarYRenderBalance();
     });
@@ -417,8 +419,10 @@
         matches.forEach(item => {
             const precioPromo = parseFloat(item.PROMO || 0);
             const precioEquivDolar = precioPromo * factor;
-            const stockVal = item.EXISTENCIA || 0;
+            const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
+
+            const labelBuscador = stockVal <= 0 ? "AGOTADO" : "Stock: " + stockVal;
 
             const div = document.createElement('div');
             div.className = 'result-item';
@@ -429,7 +433,7 @@
                     <strong>${item.PRODUCTO || item.DESCRIPCION}</strong>
                 </div>
                 <div style="text-align: right">
-                    <span class="stock-badge ${colorClass}">Stock: ${stockVal}</span><br>
+                    <span class="${colorClass === 'stock-agotado' ? 'stock-agotado' : 'stock-badge ' + colorClass}">${labelBuscador}</span><br>
                     <span class="price-promo">$${precioPromo.toFixed(2)}</span>
                     <span class="price-separator">/</span>
                     <span class="price-equiv">$${precioEquivDolar.toFixed(2)}</span>
@@ -437,8 +441,20 @@
             `;
             
             div.onclick = () => {
+                // Control de seguridad 1: Alerta activa si el stock es cero o menor
+                if (stockVal <= 0) {
+                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: 0).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
+                    if (!confirmarCero) return; 
+                }
+
                 const cant = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}`, "1");
+                
                 if (cant > 0) {
+                    // Control de seguridad 2: Alerta si la cantidad sobrepasa las existencias reales
+                    if (parseInt(cant) > stockVal && stockVal > 0) {
+                        alert(`⚠️ AVISO DE INVENTARIO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} en existencias actuales.`);
+                    }
+
                     const f = parseFloat(document.getElementById('factor').value);
                     const t = parseFloat(document.getElementById('tasa').value);
                     cart.push({
@@ -511,18 +527,14 @@
 
     function limpiar() { if(confirm("¿Deseas vaciar la factura actual?")) { cart = []; actualizar(); } }
 
-    /* ==========================================
-       NUEVAS FUNCIONES: IMPRIMIR Y EXPORTAR BALANCE
-       ========================================== */
     function imprimirBalance() {
         if (inventory.length === 0) return alert("Por favor, cargue un inventario primero.");
         
-        // Configurar los datos informativos del encabezado de impresión del Balance
         const fechaActual = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
         document.getElementById('printBalanceFecha').innerText = `Fecha y Hora de Emisión: ${fechaActual}`;
         
         let txtFiltro = "Todos los productos";
-        if (currentStockFilter === 'red') txtFiltro = "Rango: Crítico (Menos de 5 unidades)";
+        if (currentStockFilter === 'red') txtFiltro = "Rango: Críticos / Agotados (Menos de 5 unidades)";
         if (currentStockFilter === 'orange') txtFiltro = "Rango: Alerta (Entre 10 y 20 unidades)";
         if (currentStockFilter === 'green') txtFiltro = "Rango: Óptimo (Más de 20 unidades)";
         
@@ -531,13 +543,9 @@
         
         document.getElementById('printBalanceFiltro').innerText = txtFiltro;
 
-        // Activar el modo de impresión exclusivo del balance en el body
         document.body.classList.add('print-balance-mode');
-        
-        // Ejecutar comando nativo (Abre la ventana para Imprimir o Elegir "Guardar como PDF")
         window.print();
         
-        // Retirar el modo después de cerrar la interfaz de impresión para volver al sistema normal
         setTimeout(() => {
             document.body.classList.remove('print-balance-mode');
         }, 500);
@@ -546,7 +554,6 @@
     function exportarExcelBalance() {
         if (datosFiltradosGlobal.length === 0) return alert("No hay datos en el balance para exportar.");
         
-        // Estructurar filas para Excel de manera limpia
         const rows = datosFiltradosGlobal.map(item => ({
             "Código": item.CODIGO || 'S/C',
             "Marca": item.MARCA || 'TechoFácil',
@@ -559,7 +566,6 @@
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Existencias");
         
-        // Descargar archivo binario autogenerado
         XLSX.writeFile(workbook, `Balance_Existencias_TechoFacil_${currentStockFilter}.xlsx`);
     }
 </script>
