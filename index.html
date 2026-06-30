@@ -1,4 +1,4 @@
-<!<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -90,13 +90,35 @@
 
         .hide-bs, .hide-usd { display: none !important; }
 
+        /* Clases auxiliares para la impresión dirigida */
+        .print-only { display: none; }
+
+        /* ==========================================
+           MODO DE IMPRESIÓN GENERAL COINCIDENTE
+           ========================================== */
         @media print {
-            .no-print, .actions, .config-bar, .search-section, .delete-col, .balance-section { display: none !important; }
-            body { background: white; margin: 0; }
-            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; }
-            .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
-            .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
-            .totales-container { grid-template-columns: 1fr; }
+            body { background: white; margin: 0; padding: 0; }
+            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
+            
+            /* Ocultar interfaces innecesarias */
+            .no-print, .actions, .config-bar, .search-section, .delete-col, #resultsList { display: none !important; }
+            
+            /* Imprimir Factura por defecto si no se fuerza el balance */
+            body:not(.print-balance-mode) .balance-section { display: none !important; }
+            body:not(.print-balance-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
+            body:not(.print-balance-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
+            body:not(.print-balance-mode) .totales-container { grid-template-columns: 1fr; }
+
+            /* Modo de impresión exclusivo para el Balance */
+            body.print-balance-mode .container > *:not(.balance-section) { display: none !important; }
+            body.print-balance-mode .balance-section { display: block !important; margin: 0; padding: 0; border: none; }
+            body.print-balance-mode .balance-header-row, body.print-balance-mode .metrics-grid { display: none !important; }
+            body.print-balance-mode .print-only { display: block !important; text-align: center; margin-bottom: 25px; }
+            body.print-balance-mode .balance-container { max-height: none !important; overflow: visible !important; border: none; }
+            body.print-balance-mode .balance-table { width: 100%; border: 1px solid #000; }
+            body.print-balance-mode .balance-table th { background: #e2e8f0 !important; color: black !important; position: static; border: 1px solid #000; }
+            body.print-balance-mode .balance-table td { border: 1px solid #000 !important; }
+            body.print-balance-mode tr { page-break-inside: avoid; }
         }
         .factura-header { display: none; }
     </style>
@@ -104,7 +126,6 @@
 <body>
 
 <div class="container">
-    <!-- SECCIÓN FACTURACIÓN -->
     <div class="factura-header">
         <h1>TECHO FÁCIL</h1>
         <p>Presupuesto y Facturación</p>
@@ -173,17 +194,28 @@
         <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
     </div>
 
-    <!-- --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- -->
-    <div class="balance-section no-print">
-        <div class="balance-header-row">
+    <div class="balance-section">
+        
+        <div class="print-only">
+            <h1>TECHO FÁCIL</h1>
+            <h2>Balance General de Existencias de Productos</h2>
+            <p id="printBalanceFecha">Fecha de emisión: --/--/----</p>
+            <p id="printBalanceFiltro" style="font-weight: bold;">Rango de reporte: Todos los productos</p>
+            <hr>
+        </div>
+
+        <div class="balance-header-row no-print">
             <h2>📊 Balance General de Existencias</h2>
-            <div style="width: 300px;">
-                <input type="text" id="searchBalance" placeholder="🔍 Filtrar balance por nombre o código...">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <button class="main-btn btn-print" onclick="imprimirBalance()" style="padding: 8px 15px; font-size: 0.9em;">🖨️ Guardar o Imprimir Reporte</button>
+                <button class="main-btn" onclick="exportarExcelBalance()" style="background: #1f7246; color: white; padding: 8px 15px; font-size: 0.9em;">📥 Exportar Excel</button>
+                <div style="width: 250px;">
+                    <input type="text" id="searchBalance" placeholder="🔍 Filtrar por nombre...">
+                </div>
             </div>
         </div>
 
-        <!-- Indicadores / Botones del Balance -->
-        <div class="metrics-grid">
+        <div class="metrics-grid no-print">
             <div class="metric-card card-total active-filter" id="btnFilterAll" onclick="cambiarFiltroRango('all', this)">
                 <span class="metric-val" id="metaTotal">0</span>
                 Productos Totales
@@ -202,7 +234,6 @@
             </div>
         </div>
 
-        <!-- Tabla del Balance -->
         <div class="balance-container">
             <table class="balance-table" id="balanceTable">
                 <thead>
@@ -230,6 +261,7 @@
     let cart = [];
     let ordenAsc = true;
     let currentStockFilter = 'all'; // Rastrea qué botón de rango está activo
+    let datosFiltradosGlobal = []; // Guarda el estado actual filtrado para exportar o imprimir
 
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -279,7 +311,7 @@
         document.getElementById('metaGreen').innerText = optimo;
 
         // 2. Aplicar filtro del Botón de Rango de Existencias activo
-        let datosFiltrados = inventory.filter(item => {
+        datosFiltradosGlobal = inventory.filter(item => {
             const stock = parseFloat(item.EXISTENCIA || 0);
             if (currentStockFilter === 'red') return stock < 5;
             if (currentStockFilter === 'orange') return stock > 10 && stock <= 20;
@@ -290,7 +322,7 @@
         // 3. Aplicar de forma cruzada el filtro escrito en el input de texto (si tiene contenido)
         const term = document.getElementById('searchBalance').value.toLowerCase();
         if (term) {
-            datosFiltrados = datosFiltrados.filter(item => {
+            datosFiltradosGlobal = datosFiltradosGlobal.filter(item => {
                 return (item.CODIGO || '').toString().toLowerCase().includes(term) ||
                        (item.PRODUCTO || item.DESCRIPCION || '').toLowerCase().includes(term) ||
                        (item.MARCA || '').toLowerCase().includes(term);
@@ -301,12 +333,12 @@
         const tbody = document.querySelector('#balanceTable tbody');
         tbody.innerHTML = '';
 
-        if (datosFiltrados.length === 0) {
+        if (datosFiltradosGlobal.length === 0) {
             tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 20px;">No hay productos en este rango o coincidentes con la búsqueda.</td></tr>`;
             return;
         }
 
-        datosFiltrados.forEach(item => {
+        datosFiltradosGlobal.forEach(item => {
             const stockVal = item.EXISTENCIA || 0;
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
@@ -478,6 +510,58 @@
     }
 
     function limpiar() { if(confirm("¿Deseas vaciar la factura actual?")) { cart = []; actualizar(); } }
+
+    /* ==========================================
+       NUEVAS FUNCIONES: IMPRIMIR Y EXPORTAR BALANCE
+       ========================================== */
+    function imprimirBalance() {
+        if (inventory.length === 0) return alert("Por favor, cargue un inventario primero.");
+        
+        // Configurar los datos informativos del encabezado de impresión del Balance
+        const fechaActual = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        document.getElementById('printBalanceFecha').innerText = `Fecha y Hora de Emisión: ${fechaActual}`;
+        
+        let txtFiltro = "Todos los productos";
+        if (currentStockFilter === 'red') txtFiltro = "Rango: Crítico (Menos de 5 unidades)";
+        if (currentStockFilter === 'orange') txtFiltro = "Rango: Alerta (Entre 10 y 20 unidades)";
+        if (currentStockFilter === 'green') txtFiltro = "Rango: Óptimo (Más de 20 unidades)";
+        
+        const term = document.getElementById('searchBalance').value;
+        if(term) txtFiltro += ` | Buscado por término: "${term}"`;
+        
+        document.getElementById('printBalanceFiltro').innerText = txtFiltro;
+
+        // Activar el modo de impresión exclusivo del balance en el body
+        document.body.classList.add('print-balance-mode');
+        
+        // Ejecutar comando nativo (Abre la ventana para Imprimir o Elegir "Guardar como PDF")
+        window.print();
+        
+        // Retirar el modo después de cerrar la interfaz de impresión para volver al sistema normal
+        setTimeout(() => {
+            document.body.classList.remove('print-balance-mode');
+        }, 500);
+    }
+
+    function exportarExcelBalance() {
+        if (datosFiltradosGlobal.length === 0) return alert("No hay datos en el balance para exportar.");
+        
+        // Estructurar filas para Excel de manera limpia
+        const rows = datosFiltradosGlobal.map(item => ({
+            "Código": item.CODIGO || 'S/C',
+            "Marca": item.MARCA || 'TechoFácil',
+            "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
+            "Precio Promo ($)": parseFloat(item.PROMO || 0),
+            "Existencia Actual": parseInt(item.EXISTENCIA || 0)
+        }));
+        
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Existencias");
+        
+        // Descargar archivo binario autogenerado
+        XLSX.writeFile(workbook, `Balance_Existencias_TechoFacil_${currentStockFilter}.xlsx`);
+    }
 </script>
 </body>
 </html>
