@@ -13,13 +13,17 @@
             --dark: #2c3e50;
             --warning: #f39c12;
             --neutral: #7f8c8d;
+            --whatsapp: #25D366;
         }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 20px; background-color: #f0f4f8; }
         .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
         
         .no-print { display: block; }
-        .config-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 8px; }
+        .config-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 8px; }
         
+        /* Sección de Cliente Vista en Pantalla */
+        .cliente-factura-vista { margin: 15px 0; padding: 10px 15px; background: #eef2f7; border-left: 4px solid var(--primary); border-radius: 0 6px 6px 0; font-size: 1.1em; }
+
         /* Buscador */
         .search-section { position: relative; margin-bottom: 30px; }
         .search-container { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
@@ -77,12 +81,12 @@
         
         button.main-btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-print { background: var(--primary); color: white; }
+        .btn-whatsapp { background: var(--whatsapp); color: white; }
         .btn-clear { background: #666; color: white; }
 
         /* --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- */
         .balance-section { margin-top: 35px; border-top: 3px solid var(--dark); padding-top: 20px; }
         
-        /* Botones de métricas rápidas interactivos */
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .metric-card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 3px solid transparent; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; user-select: none; }
         .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
@@ -92,9 +96,7 @@
         .card-green { background-color: var(--accent); }
         .card-total { background-color: var(--dark); }
         
-        /* Efecto de botón activo */
         .metric-card.active-filter { border-color: #000; box-shadow: inset 0 0 10px rgba(0,0,0,0.3); transform: scale(0.98); }
-        
         .metric-val { display: block; font-size: 1.8em; font-weight: 1000; }
 
         .balance-header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
@@ -105,8 +107,6 @@
         .balance-table tr:hover td { background-color: #f1f5f9; }
 
         .hide-bs, .hide-usd { display: none !important; }
-
-        /* Clases auxiliares para la impresión dirigida */
         .print-only { display: none; }
 
         /* Modo de impresión general estructurado */
@@ -139,6 +139,9 @@
     <div class="factura-header">
         <h1>TECHO FÁCIL</h1>
         <p>Presupuesto y Facturación</p>
+        <div style="text-align: left; margin-top: 15px; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-radius: 5px;">
+            <span id="printClienteNombre"><strong>Cliente:</strong> Ocasional</span>
+        </div>
         <hr>
     </div>
 
@@ -150,6 +153,10 @@
             <input type="file" id="upload" accept=".xlsx, .xls">
         </div>
         <div>
+            <label>👤 Nombre del Cliente:</label>
+            <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez / Inversiones J&R" oninput="sincronizarCliente()">
+        </div>
+        <div>
             <label>Tasa (Bs):</label>
             <input type="number" id="tasa" value="36.50" step="0.01">
         </div>
@@ -157,6 +164,10 @@
             <label>Factor (Margen):</label>
             <input type="number" id="factor" value="1.45" step="0.01">
         </div>
+    </div>
+
+    <div class="cliente-factura-vista no-print" id="vistaClienteCaja">
+        👤 <strong>Cliente actual:</strong> <span id="labelClienteDinamico">Ocasional</span>
     </div>
 
     <div class="search-section no-print">
@@ -201,6 +212,7 @@
 
     <div class="actions no-print">
         <button class="main-btn btn-clear" onclick="limpiar()">Vaciar</button>
+        <button class="main-btn btn-whatsapp" onclick="enviarWhatsApp()">💬 Enviar por WhatsApp</button>
         <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
     </div>
 
@@ -232,7 +244,7 @@
             </div>
             <div class="metric-card card-red" id="btnFilterRed" onclick="cambiarFiltroRango('red', this)">
                 <span class="metric-val" id="metaRed">0</span>
-                Crítico / Agotado (< 5)
+                Crítico / Agotado (&lt; 5)
             </div>
             <div class="metric-card card-orange" id="btnFilterOrange" onclick="cambiarFiltroRango('orange', this)">
                 <span class="metric-val" id="metaOrange">0</span>
@@ -240,7 +252,7 @@
             </div>
             <div class="metric-card card-green" id="btnFilterGreen" onclick="cambiarFiltroRango('green', this)">
                 <span class="metric-val" id="metaGreen">0</span>
-                Óptimo (> 20)
+                Óptimo (&gt; 20)
             </div>
         </div>
 
@@ -294,10 +306,18 @@
         reader.readAsArrayBuffer(file);
     });
 
-    // Devuelve la clase CSS correspondiente al stock
+    function sincronizarCliente() {
+        const nombre = document.getElementById('clienteNombre').value.trim();
+        const textoCliente = nombre !== "" ? nombre : "Ocasional";
+        
+        // Sincroniza visualización en pantalla e impresión
+        document.getElementById('labelClienteDinamico').innerText = textoCliente;
+        document.getElementById('printClienteNombre').innerHTML = `<strong>Cliente:</strong> ${textoCliente}`;
+    }
+
     function getStockClass(existencia) {
         const stock = parseFloat(existencia || 0);
-        if (stock <= 0) return 'stock-agotado'; // <-- Alerta crítica parpadeante para stock 0
+        if (stock <= 0) return 'stock-agotado'; 
         if (stock < 5) return 'stock-red';
         if (stock > 20) return 'stock-green';
         if (stock > 10) return 'stock-orange';
@@ -441,7 +461,6 @@
             `;
             
             div.onclick = () => {
-                // Control de seguridad 1: Alerta activa si el stock es cero o menor
                 if (stockVal <= 0) {
                     const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: 0).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
                     if (!confirmarCero) return; 
@@ -450,7 +469,6 @@
                 const cant = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}`, "1");
                 
                 if (cant > 0) {
-                    // Control de seguridad 2: Alerta si la cantidad sobrepasa las existencias reales
                     if (parseInt(cant) > stockVal && stockVal > 0) {
                         alert(`⚠️ AVISO DE INVENTARIO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} en existencias actuales.`);
                     }
@@ -507,25 +525,94 @@
         document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolarTotal.toFixed(2)}`;
     }
 
+    function restablecerVistaPrecios() {
+        document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.remove('hide-bs'));
+        document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.remove('hide-usd'));
+    }
+
     function prepararImpresion() {
         if (cart.length === 0) return alert("Agregue productos primero.");
         const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
 
-        document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.remove('hide-bs'));
-        document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.remove('hide-usd'));
+        restablecerVistaPrecios();
 
         if (opcion === "1") {
             document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.add('hide-bs'));
             window.print();
+            setTimeout(restablecerVistaPrecios, 1000); 
         } else if (opcion === "2") {
             document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
             window.print();
+            setTimeout(restablecerVistaPrecios, 1000);
         } else {
             alert("Selección cancelada.");
         }
     }
 
-    function limpiar() { if(confirm("¿Deseas vaciar la factura actual?")) { cart = []; actualizar(); } }
+    function enviarWhatsApp() {
+        if (cart.length === 0) return alert("Agregue productos primero.");
+        
+        const opcion = prompt("¿Qué formato de precios desea enviar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
+        if (opcion !== "1" && opcion !== "2") return alert("Selección cancelada.");
+
+        const cliente = document.getElementById('clienteNombre').value.trim();
+
+        let texto = `*TECHO FÁCIL* 📝\n`;
+        texto += `_Presupuesto y Cotización_\n`;
+        if (cliente !== "") {
+            texto += `👤 *Cliente:* ${cliente}\n`;
+        }
+        texto += `-------------------------------------------\n\n`;
+
+        let tPromo = 0, tBs = 0, tPvpDolarTotal = 0;
+
+        cart.forEach((item) => {
+            const subPromo = item.p * item.c;
+            const subBs = item.bs * item.c;
+            const subPvpDolar = item.pvp * item.c;
+            
+            tPromo += subPromo;
+            tBs += subBs;
+            tPvpDolarTotal += subPvpDolar;
+
+            texto += `🔹 *${item.n}*\n`;
+            texto += `   Cant: ${item.c}`;
+            
+            if (opcion === "1") {
+                texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
+            } else {
+                texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}*\n\n`;
+            }
+        });
+
+        texto += `-------------------------------------------\n`;
+        
+        if (opcion === "1") {
+            texto += `💰 *TOTAL EN DIVISAS:* *$ ${tPromo.toFixed(2)}*\n`;
+            texto += `_(Aplica solo para pago en efectivo divisas)_\n`;
+        } else {
+            const t = parseFloat(document.getElementById('tasa').value);
+            texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}*\n`;
+            texto += `👉 _Equiv. Ref: $ ${tPvpDolarTotal.toFixed(2)}_\n`;
+            texto += `📊 _Tasa BCV de referencia: Bs. ${t.toFixed(2)}_\n`;
+        }
+        
+        texto += `\n¡Gracias por preferir a TechoFácil! 👍`;
+
+        restablecerVistaPrecios();
+
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+        window.open(url, '_blank');
+    }
+
+    function limpiar() { 
+        if(confirm("¿Deseas vaciar la factura actual?")) { 
+            cart = []; 
+            document.getElementById('clienteNombre').value = ""; // Limpia el nombre del cliente
+            sincronizarCliente(); 
+            actualizar(); 
+        } 
+    }
 
     function imprimirBalance() {
         if (inventory.length === 0) return alert("Por favor, cargue un inventario primero.");
