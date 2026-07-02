@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Facturación y Balance</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         :root { 
             --primary: #0056b3; 
@@ -27,7 +28,7 @@
         /* Buscador */
         .search-section { position: relative; margin-bottom: 30px; }
         .search-container { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
-        input[type="text"], input[type="number"] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        input[type="text"], input[type="number"], select { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
         .btn-sort { 
             background: white; border: 1px solid #ccc; border-radius: 6px; padding: 0 15px; height: 46px; cursor: pointer; font-size: 0.9em; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
@@ -84,7 +85,7 @@
         .btn-whatsapp { background: var(--whatsapp); color: white; }
         .btn-clear { background: #666; color: white; }
 
-        /* --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- */
+        /* PANEL DE BALANCE DE INVENTARIO INFERIOR */
         .balance-section { margin-top: 35px; border-top: 3px solid var(--dark); padding-top: 20px; }
         
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
@@ -106,20 +107,46 @@
         .balance-table td { padding: 10px 12px; border-bottom: 1px solid #eee; background: white; }
         .balance-table tr:hover td { background-color: #f1f5f9; }
 
+        /* Estilos específicos para la sección interactiva de la gráfica ocupando todo el ancho */
+        .charts-container { display: block; margin: 25px 0; }
+        .chart-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e1e8ed; width: 100%; box-sizing: border-box; }
+        
+        /* Caja de Reseña Dinámica Multiproducto */
+        .review-box { background: #fffde7; border: 2px dashed #fbc02d; padding: 20px; border-radius: 8px; margin-top: 15px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .review-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+        .review-title { font-size: 1.2em; font-weight: bold; color: #f57f17; margin: 0; }
+        .review-actions-bar { display: flex; gap: 8px; }
+        
+        .review-table-container { max-height: 250px; overflow-y: auto; background: white; border: 1px solid #f0e6c2; border-radius: 6px; }
+        .review-table { width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; }
+        .review-table th { background: #fbc02d; color: #333; padding: 8px 12px; position: sticky; top: 0; z-index: 10; }
+        .review-table td { padding: 8px 12px; border-bottom: 1px solid #fbeaa0; color: #444; background: white; }
+        .review-table tr:hover td { background-color: #fffde7; }
+
         .hide-bs, .hide-usd { display: none !important; }
         .print-only { display: none; }
 
-        /* Modo de impresión general estructurado */
+        /* Configuración de clases de impresión dedicadas */
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
-            .no-print, .actions, .config-bar, .search-section, .delete-col, #resultsList { display: none !important; }
             
-            body:not(.print-balance-mode) .balance-section { display: none !important; }
-            body:not(.print-balance-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
-            body:not(.print-balance-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
-            body:not(.print-balance-mode) .totales-container { grid-template-columns: 1fr; }
+            /* Estado Por Defecto (Imprimir Factura) */
+            body:not(.print-balance-mode):not(.print-group-mode) .balance-section,
+            body:not(.print-balance-mode):not(.print-group-mode) .charts-container,
+            body:not(.print-balance-mode):not(.print-group-mode) .review-box,
+            body:not(.print-balance-mode):not(.print-group-mode) .no-print,
+            body:not(.print-balance-mode):not(.print-group-mode) .actions,
+            body:not(.print-balance-mode):not(.print-group-mode) .config-bar,
+            body:not(.print-balance-mode):not(.print-group-mode) .search-section,
+            body:not(.print-balance-mode):not(.print-group-mode) .delete-col,
+            body:not(.print-balance-mode):not(.print-group-mode) #resultsList { display: none !important; }
+            
+            body:not(.print-balance-mode):not(.print-group-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
+            body:not(.print-balance-mode):not(.print-group-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
+            body:not(.print-balance-mode):not(.print-group-mode) .totales-container { grid-template-columns: 1fr; }
 
+            /* MODO DE IMPRESIÓN 1: Balance General Completo */
             body.print-balance-mode .container > *:not(.balance-section) { display: none !important; }
             body.print-balance-mode .balance-section { display: block !important; margin: 0; padding: 0; border: none; }
             body.print-balance-mode .balance-header-row, body.print-balance-mode .metrics-grid { display: none !important; }
@@ -129,6 +156,16 @@
             body.print-balance-mode .balance-table th { background: #e2e8f0 !important; color: black !important; position: static; border: 1px solid #000; }
             body.print-balance-mode .balance-table td { border: 1px solid #000 !important; }
             body.print-balance-mode tr { page-break-inside: avoid; }
+
+            /* MODO DE IMPRESIÓN 2: Solo Grupo de Existencia Exacta Seleccionado */
+            body.print-group-mode .container > *:not(.review-box) { display: none !important; }
+            body.print-group-mode .review-box { display: block !important; background: white !important; border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }
+            body.print-group-mode .review-actions-bar { display: none !important; }
+            body.print-group-mode .review-table-container { max-height: none !important; overflow: visible !important; border: none !important; }
+            body.print-group-mode .review-table { width: 100% !important; border: 1px solid #000 !important; }
+            body.print-group-mode .review-table th { background: #f3f4f6 !important; color: black !important; border: 1px solid #000 !important; position: static !important; }
+            body.print-group-mode .review-table td { border: 1px solid #000 !important; background: white !important; }
+            body.print-group-mode tr { page-break-inside: avoid; }
         }
         .factura-header { display: none; }
     </style>
@@ -136,7 +173,6 @@
 <body>
 
 <div class="container">
-    <!-- Encabezado de impresión de Factura sin marca comercial -->
     <div class="factura-header">
         <h1>PRESUPUESTO Y COTIZACIÓN</h1>
         <div style="text-align: left; margin-top: 15px; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-radius: 5px;">
@@ -154,7 +190,7 @@
         </div>
         <div>
             <label>👤 Nombre del Cliente:</label>
-            <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez / Inversiones J&R" oninput="sincronizarCliente()">
+            <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez" oninput="sincronizarCliente()">
         </div>
         <div>
             <label>Tasa (Bs):</label>
@@ -166,7 +202,6 @@
         </div>
     </div>
 
-    <!-- Indicador visual del cliente en pantalla -->
     <div class="cliente-factura-vista no-print" id="vistaClienteCaja">
         👤 <strong>Cliente actual:</strong> <span id="labelClienteDinamico">Ocasional</span>
     </div>
@@ -217,8 +252,40 @@
         <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
     </div>
 
+    <div class="charts-container no-print">
+        <div class="chart-card">
+            <h3 style="margin:0 0 15px 0; color: var(--danger);">📉 Cantidad de Productos por Niveles de Existencia (0 a 5)</h3>
+            <div style="position: relative; height:280px;">
+                <canvas id="chartBajasExistencias"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="boxResena" class="review-box">
+        <div class="review-header-flex">
+            <h4 class="review-title" id="tituloResenaGrupos">📋 Productos en el Grupo Seleccionado</h4>
+            <div class="review-actions-bar no-print">
+                <button class="main-btn" onclick="imprimirGrupoSeleccionado()" style="background: var(--primary); color: white; padding: 6px 12px; font-size: 0.85em;">🖨️ Imprimir / PDF</button>
+                <button class="main-btn" onclick="exportarExcelGrupoSeleccionado()" style="background: #1f7246; color: white; padding: 6px 12px; font-size: 0.85em;">📥 Guardar Excel</button>
+            </div>
+        </div>
+        <div class="review-table-container">
+            <table class="review-table" id="tablaResenaGrupos">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Marca</th>
+                        <th>Descripción</th>
+                        <th>Existencia</th>
+                        <th>Precio Promo</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+
     <div class="balance-section">
-        
         <div class="print-only">
             <h2>Balance General de Existencias de Productos</h2>
             <p id="printBalanceFecha">Fecha de emisión: --/--/----</p>
@@ -229,7 +296,7 @@
         <div class="balance-header-row no-print">
             <h2>📊 Balance General de Existencias</h2>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <button class="main-btn btn-print" onclick="imprimirBalance()" style="padding: 8px 15px; font-size: 0.9em;">🖨️ Guardar o Imprimir Reporte</button>
+                <button class="main-btn btn-print" onclick="imprimirBalance()" style="padding: 8px 15px; font-size: 0.9em;">🖨️ Imprimir Reporte</button>
                 <button class="main-btn" onclick="exportarExcelBalance()" style="background: #1f7246; color: white; padding: 8px 15px; font-size: 0.9em;">📥 Exportar Excel</button>
                 <div style="width: 250px;">
                     <input type="text" id="searchBalance" placeholder="🔍 Filtrar por nombre...">
@@ -275,7 +342,6 @@
             </table>
         </div>
     </div>
-
 </div>
 
 <script>
@@ -284,6 +350,10 @@
     let ordenAsc = true;
     let currentStockFilter = 'all'; 
     let datosFiltradosGlobal = []; 
+    
+    let chartLowInstance = null;
+    let gruposDeStock = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
+    let ultimoGrupoSeleccionado = -1; // Almacena el número de stock seleccionado actual
 
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -302,6 +372,7 @@
             currentStockFilter = 'all';
             
             procesarYRenderBalance();
+            renderizarGraficas();
         };
         reader.readAsArrayBuffer(file);
     });
@@ -309,7 +380,6 @@
     function sincronizarCliente() {
         const nombre = document.getElementById('clienteNombre').value.trim();
         const textoCliente = nombre !== "" ? nombre : "Ocasional";
-        
         document.getElementById('labelClienteDinamico').innerText = textoCliente;
         document.getElementById('printClienteNombre').innerHTML = `<strong>Cliente:</strong> ${textoCliente}`;
     }
@@ -359,7 +429,7 @@
         tbody.innerHTML = '';
 
         if (datosFiltradosGlobal.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 20px;">No hay productos en este rango o coincidentes con la búsqueda.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 20px;">No hay productos correspondientes.</td></tr>`;
             return;
         }
 
@@ -367,8 +437,6 @@
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
-
-            // Muestra el valor negativo o en cero de forma explícita en el balance
             const labelStock = stockVal <= 0 ? `AGOTADO (${stockVal})` : stockVal;
 
             const tr = document.createElement('tr');
@@ -383,483 +451,138 @@
         });
     }
 
-    function cambiarFiltroRango(rango, elementoCard) {
-        if (inventory.length === 0) return;
-        document.querySelectorAll('.metric-card').forEach(card => card.classList.remove('active-filter'));
-        elementoCard.classList.add('active-filter');
-        currentStockFilter = rango;
-        procesarYRenderBalance();
+    function mostrarProductosDelGrupo(nivelStock) {
+        ultimoGrupoSeleccionado = nivelStock;
+        const productos = gruposDeStock[nivelStock] || [];
+        const titulo = document.getElementById('tituloResenaGrupos');
+        const tbody = document.querySelector('#tablaResenaGrupos tbody');
+        
+        titulo.innerText = `📋 Lista de Productos con Existencia Exacta: [${nivelStock}] (Encontrados: ${productos.length})`;
+        tbody.innerHTML = '';
+
+        if(productos.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color:#777; padding: 15px;">No hay productos en esta categoría.</td></tr>`;
+        } else {
+            productos.forEach(item => {
+                const stockReal = parseFloat(item.EXISTENCIA || 0);
+                const precio = parseFloat(item.PROMO || 0);
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>#${item.CODIGO || 'S/C'}</strong></td>
+                        <td><span style="background:#f1f5f9; padding:2px 5px; border-radius:3px;">${item.MARCA || 'General'}</span></td>
+                        <td>${item.PRODUCTO || item.DESCRIPCION || 'Sin nombre'}</td>
+                        <td><span class="stock-badge ${stockReal <= 0 ? 'stock-red' : 'stock-orange'}">${stockReal}</span></td>
+                        <td style="font-weight: bold; color: var(--accent);">$ ${precio.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        document.getElementById('boxResena').style.display = 'block';
+        document.getElementById('boxResena').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    document.getElementById('searchBalance').addEventListener('input', () => {
-        procesarYRenderBalance();
-    });
+    /* 🖨️ ACCIÓN: IMPRIMIR O DEJAR LISTO PARA GUARDAR COMO PDF EL GRUPO ACTUAL */
+    function imprimirGrupoSeleccionado() {
+        if(ultimoGrupoSeleccionado === -1) return alert("Seleccione primero un grupo de la gráfica.");
+        document.body.classList.add('print-group-mode');
+        window.print();
+        setTimeout(() => document.body.classList.remove('print-group-mode'), 500);
+    }
 
-    function ordenarPorPrecio() {
-        if (inventory.length === 0) return alert("Cargue un inventario primero.");
+    /* 📥 ACCIÓN: EXPORTAR A EXCEL SÓLO EL GRUPO SELECCIONADO DE LA GRÁFICA */
+    function exportarExcelGrupoSeleccionado() {
+        if(ultimoGrupoSeleccionado === -1) return alert("Seleccione primero un grupo de la gráfica.");
+        const productos = gruposDeStock[ultimoGrupoSeleccionado] || [];
+        if (productos.length === 0) return alert("No hay datos en este grupo para exportar.");
         
-        inventory.sort((a, b) => {
-            const precioA = parseFloat(a.PROMO || 0);
-            const precioB = parseFloat(b.PROMO || 0);
-            return ordenAsc ? precioA - precioB : precioB - precioA;
+        const rows = productos.map(item => ({
+            "Código": item.CODIGO || 'S/C',
+            "Marca": item.MARCA || 'General',
+            "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
+            "Existencia": parseFloat(item.EXISTENCIA || 0),
+            "Precio Promo ($)": parseFloat(item.PROMO || 0)
+        }));
+        
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, `Stock Exacto ${ultimoGrupoSeleccionado}`);
+        XLSX.writeFile(workbook, `Productos_Stock_Exacto_${ultimoGrupoSeleccionado}.xlsx`);
+    }
+
+    function renderizarGraficas() {
+        if (inventory.length === 0) return;
+        gruposDeStock = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
+
+        inventory.forEach(item => {
+            const s = parseFloat(item.EXISTENCIA || 0);
+            if (s <= 0) {
+                gruposDeStock[0].push(item); 
+            } else if (s === 1) {
+                gruposDeStock[1].push(item);
+            } else if (s === 2) {
+                gruposDeStock[2].push(item);
+            } else if (s === 3) {
+                gruposDeStock[3].push(item);
+            } else if (s === 4) {
+                gruposDeStock[4].push(item);
+            } else if (s === 5) {
+                gruposDeStock[5].push(item);
+            }
         });
 
-        const btn = document.getElementById('btnSort');
-        btn.innerHTML = ordenAsc ? "↑ Menor Precio" : "↓ Mayor Precio";
-        ordenAsc = !ordenAsc;
+        const labelsGrupos = [
+            'Totalmente en 0 / Negativos',
+            'Existencia de 1 unidad',
+            'Existencia de 2 unidades',
+            'Existencia de 3 unidades',
+            'Existencia de 4 unidades',
+            'Existencia de 5 unidades'
+        ];
 
-        if (searchInput.value.length >= 2) {
-            searchInput.dispatchEvent(new Event('input'));
-        }
-        procesarYRenderBalance();
-    }
+        const dataVolumen = [
+            gruposDeStock[0].length,
+            gruposDeStock[1].length,
+            gruposDeStock[2].length,
+            gruposDeStock[3].length,
+            gruposDeStock[4].length,
+            gruposDeStock[5].length
+        ];
 
-    const searchInput = document.getElementById('search');
-    const resultsList = document.getElementById('resultsList');
-
-    searchInput.addEventListener('input', () => {
-        const term = searchInput.value.toLowerCase();
-        const factor = parseFloat(document.getElementById('factor').value) || 1;
+        if (chartLowInstance) chartLowInstance.destroy();
+        const ctxLow = document.getElementById('chartBajasExistencias').getContext('2d');
         
-        resultsList.innerHTML = '';
-        if (term.length < 2) { resultsList.style.display = 'none'; return; }
-
-        const searchWords = term.split(/\s+/).filter(word => word.length > 0);
-
-        const matches = inventory.filter(item => {
-            const itemString = `
-                ${item.CODIGO || ''} 
-                ${item.PRODUCTO || ''} 
-                ${item.DESCRIPCION || ''} 
-                ${item.MARCA || ''}
-            `.toLowerCase();
-            return searchWords.every(word => itemString.includes(word));
-        }).slice(0, 50);
-
-        matches.forEach(item => {
-            const precioPromo = parseFloat(item.PROMO || 0);
-            const precioEquivDolar = precioPromo * factor;
-            const stockVal = parseFloat(item.EXISTENCIA || 0);
-            const colorClass = getStockClass(stockVal);
-
-            // Muestra dinámicamente la cantidad si es cero o negativa dentro de la etiqueta en el buscador
-            const labelBuscador = stockVal <= 0 ? `AGOTADO (${stockVal})` : "Stock: " + stockVal;
-
-            const div = document.createElement('div');
-            div.className = 'result-item';
-            div.innerHTML = `
-                <div>
-                    <small style="color:blue">#${item.CODIGO || 'S/C'}</small>
-                    <small style="background:#eee; padding:2px 5px; border-radius:3px; margin-left:5px;">${item.MARCA || 'General'}</small><br>
-                    <strong>${item.PRODUCTO || item.DESCRIPCION}</strong>
-                </div>
-                <div style="text-align: right">
-                    <span class="${colorClass === 'stock-agotado' ? 'stock-agotado' : 'stock-badge ' + colorClass}">${labelBuscador}</span><br>
-                    <span class="price-promo">$${precioPromo.toFixed(2)}</span>
-                    <span class="price-separator">/</span>
-                    <span class="price-equiv">$${precioEquivDolar.toFixed(2)}</span>
-                </div>
-            `;
-            
-            div.onclick = () => {
-                if (stockVal <= 0) {
-                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: ${stockVal}).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
-                    if (!confirmarCero) return; 
-                }
-
-                const cant = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}`, "1");
-                
-                if (cant > 0) {
-                    if (parseInt(cant) > stockVal && stockVal > 0) {
-                        alert(`⚠️ AVISO DE INVENTARIO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} en existencias actuales.`);
+        chartLowInstance = new Chart(ctxLow, {
+            type: 'bar',
+            data: {
+                labels: labelsGrupos,
+                datasets: [{
+                    label: 'Cantidad de Productos Únicos',
+                    data: dataVolumen,
+                    backgroundColor: ['#ff0000', '#d9534f', '#f39c12', '#e67e22', '#3498db', '#9b59b6'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y', 
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { 
+                    legend: { display: false }
+                },
+                scales: { 
+                    x: { 
+                        beginAtZero: true,
+                        title: { display: true, text: 'Número total de productos en este grupo' }
+                    } 
+                },
+                onClick: (e, activeElements) => {
+                    if (activeElements.length > 0) {
+                        const index = activeElements[0].index; 
+                        mostrarProductosDelGrupo(index);
                     }
-
-                    const f = parseFloat(document.getElementById('factor').value);
-                    const t = parseFloat(document.getElementById('tasa').value);
-                    cart.push({
-                        cod: item.CODIGO || 'S/C',
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Facturación y Balance</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <style>
-        :root { 
-            --primary: #0056b3; 
-            --accent: #28a745; 
-            --danger: #d9534f; 
-            --dark: #2c3e50;
-            --warning: #f39c12;
-            --neutral: #7f8c8d;
-            --whatsapp: #25D366;
-        }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 20px; background-color: #f0f4f8; }
-        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
-        
-        .no-print { display: block; }
-        .config-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; background: #eee; padding: 15px; border-radius: 8px; }
-        
-        /* Sección de Cliente Vista en Pantalla */
-        .cliente-factura-vista { margin: 15px 0; padding: 10px 15px; background: #eef2f7; border-left: 4px solid var(--primary); border-radius: 0 6px 6px 0; font-size: 1.1em; }
-
-        /* Buscador */
-        .search-section { position: relative; margin-bottom: 30px; }
-        .search-container { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
-        input[type="text"], input[type="number"] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
-        
-        .btn-sort { 
-            background: white; border: 1px solid #ccc; border-radius: 6px; padding: 0 15px; height: 46px; cursor: pointer; font-size: 0.9em; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
-        }
-        .btn-sort:hover { background: #f0f0f0; border-color: var(--primary); color: var(--primary); }
-
-        #resultsList { 
-            position: absolute; width: 100%; background: white; border: 1px solid #ddd; z-index: 100; max-height: 400px; overflow-y: auto; display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 0 0 8px 8px;
-        }
-        .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .result-item:hover { background: #f1f7ff; }
-        
-        /* Alertas de color para existencias */
-        .stock-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; color: white; display: inline-block; margin-bottom: 4px; background: var(--neutral); }
-        .stock-red { background-color: var(--danger) !important; }
-        .stock-orange { background-color: var(--warning) !important; }
-        .stock-green { background-color: var(--accent) !important; }
-        
-        /* Animación parpadeante para Existencia Menor o Igual a Cero */
-        @keyframes parpadeo-alerta {
-            0% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
-            50% { background-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.8); }
-            100% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
-        }
-        .stock-agotado {
-            animation: parpadeo-alerta 1.5s infinite;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-size: 0.85em;
-            font-weight: bold;
-            color: white;
-            display: inline-block;
-        }
-        
-        .price-promo { color: #28a745; font-weight: bold; font-size: 1.1em; }
-        .price-equiv { color: #d9534f; font-weight: bold; font-size: 1.1em; }
-        .price-separator { color: #666; margin: 0 5px; font-weight: bold; }
-
-        .factura-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.9em; }
-        .factura-table th { background: var(--dark); color: white; padding: 10px; text-align: left; }
-        .factura-table td { padding: 8px; border-bottom: 1px solid #ddd; }
-        
-        .totales-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
-        .box-total { padding: 15px; border-radius: 8px; border: 1px solid #ddd; text-align: center; }
-        .box-divisas { background: #e8f5e9; border-color: var(--accent); }
-        .box-bolivares { background: #ffebee; border-color: var(--danger); }
-        
-        .val-grande { font-size: 1.6em; font-weight: bold; display: block; }
-        .label-total { font-weight: bold; text-transform: uppercase; font-size: 0.8em; color: #555; }
-        .actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
-        
-        button.main-btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-print { background: var(--primary); color: white; }
-        .btn-whatsapp { background: var(--whatsapp); color: white; }
-        .btn-clear { background: #666; color: white; }
-
-        /* --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- */
-        .balance-section { margin-top: 35px; border-top: 3px solid var(--dark); padding-top: 20px; }
-        
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .metric-card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 3px solid transparent; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; user-select: none; }
-        .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-        
-        .card-red { background-color: var(--danger); }
-        .card-orange { background-color: var(--warning); }
-        .card-green { background-color: var(--accent); }
-        .card-total { background-color: var(--dark); }
-        
-        .metric-card.active-filter { border-color: #000; box-shadow: inset 0 0 10px rgba(0,0,0,0.3); transform: scale(0.98); }
-        .metric-val { display: block; font-size: 1.8em; font-weight: 1000; }
-
-        .balance-header-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
-        .balance-container { max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; background: #fafafa; }
-        .balance-table { width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; }
-        .balance-table th { background: #34495e; color: white; padding: 12px; position: sticky; top: 0; }
-        .balance-table td { padding: 10px 12px; border-bottom: 1px solid #eee; background: white; }
-        .balance-table tr:hover td { background-color: #f1f5f9; }
-
-        .hide-bs, .hide-usd { display: none !important; }
-        .print-only { display: none; }
-
-        /* Modo de impresión general estructurado */
-        @media print {
-            body { background: white; margin: 0; padding: 0; }
-            .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
-            .no-print, .actions, .config-bar, .search-section, .delete-col, #resultsList { display: none !important; }
-            
-            body:not(.print-balance-mode) .balance-section { display: none !important; }
-            body:not(.print-balance-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
-            body:not(.print-balance-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
-            body:not(.print-balance-mode) .totales-container { grid-template-columns: 1fr; }
-
-            body.print-balance-mode .container > *:not(.balance-section) { display: none !important; }
-            body.print-balance-mode .balance-section { display: block !important; margin: 0; padding: 0; border: none; }
-            body.print-balance-mode .balance-header-row, body.print-balance-mode .metrics-grid { display: none !important; }
-            body.print-balance-mode .print-only { display: block !important; text-align: center; margin-bottom: 25px; }
-            body.print-balance-mode .balance-container { max-height: none !important; overflow: visible !important; border: none; }
-            body.print-balance-mode .balance-table { width: 100%; border: 1px solid #000; }
-            body.print-balance-mode .balance-table th { background: #e2e8f0 !important; color: black !important; position: static; border: 1px solid #000; }
-            body.print-balance-mode .balance-table td { border: 1px solid #000 !important; }
-            body.print-balance-mode tr { page-break-inside: avoid; }
-        }
-        .factura-header { display: none; }
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <!-- Encabezado de impresión de Factura sin marca comercial -->
-    <div class="factura-header">
-        <h1>PRESUPUESTO Y COTIZACIÓN</h1>
-        <div style="text-align: left; margin-top: 15px; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-radius: 5px;">
-            <span id="printClienteNombre"><strong>Cliente:</strong> Ocasional</span>
-        </div>
-        <hr>
-    </div>
-
-    <h2 class="no-print">Generador de Factura / Cotización</h2>
-    
-    <div class="config-bar no-print">
-        <div>
-            <label>Cargar Inventario:</label>
-            <input type="file" id="upload" accept=".xlsx, .xls">
-        </div>
-        <div>
-            <label>👤 Nombre del Cliente:</label>
-            <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez / Inversiones J&R" oninput="sincronizarCliente()">
-        </div>
-        <div>
-            <label>Tasa (Bs):</label>
-            <input type="number" id="tasa" value="36.50" step="0.01">
-        </div>
-        <div>
-            <label>Factor (Margen):</label>
-            <input type="number" id="factor" value="1.45" step="0.01">
-        </div>
-    </div>
-
-    <!-- Indicador visual del cliente en pantalla -->
-    <div class="cliente-factura-vista no-print" id="vistaClienteCaja">
-        👤 <strong>Cliente actual:</strong> <span id="labelClienteDinamico">Ocasional</span>
-    </div>
-
-    <div class="search-section no-print">
-        <label><strong>🔍 Buscar Producto (Detalle por palabras):</strong></label>
-        <div class="search-container">
-            <input type="text" id="search" placeholder="Ej: blanco 2 caras...">
-            <button class="btn-sort" id="btnSort" onclick="ordenarPorPrecio()" title="Ordenar por precio">
-                <span>⇅</span> Ordenar
-            </button>
-        </div>
-        <div id="resultsList"></div>
-    </div>
-
-    <table class="factura-table" id="facturaTable">
-        <thead>
-            <tr>
-                <th>Código</th>
-                <th>Descripción</th>
-                <th>Cant.</th>
-                <th class="col-usd">Costo Unit ($)</th>
-                <th class="col-usd">Subtotal ($)</th>
-                <th class="col-bs">PVP Unit (Bs)</th>
-                <th class="col-bs">Subtotal (Bs)</th>
-                <th class="no-print delete-col"></th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-
-    <div class="totales-container">
-        <div id="boxDivisas" class="box-total box-divisas">
-            <span class="label-total">Total en Divisas (Precio Promo)</span>
-            <span id="totalUSD" class="val-grande" style="color: var(--accent);">$ 0.00</span>
-            <small>Solo aplica para pago en DIVISAS</small>
-        </div>
-        <div id="boxBolivares" class="box-total box-bolivares">
-            <span class="label-total">Total en Bolívares (PVP Final) SEGUN LA TASA DEL BCV</span>
-            <span id="totalBS" class="val-grande" style="color: var(--danger);">Bs. 0,00</span>
-            <span id="equivDolarPVP" class="label-total" style="display:block; margin-top:5px; color:#333; font-weight: bold;">Equiv: $ 0.00</span>
-        </div>
-    </div>
-
-    <div class="actions no-print">
-        <button class="main-btn btn-clear" onclick="limpiar()">Vaciar</button>
-        <button class="main-btn btn-whatsapp" onclick="enviarWhatsApp()">💬 Enviar por WhatsApp</button>
-        <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
-    </div>
-
-    <div class="balance-section">
-        
-        <div class="print-only">
-            <h2>Balance General de Existencias de Productos</h2>
-            <p id="printBalanceFecha">Fecha de emisión: --/--/----</p>
-            <p id="printBalanceFiltro" style="font-weight: bold;">Rango de reporte: Todos los productos</p>
-            <hr>
-        </div>
-
-        <div class="balance-header-row no-print">
-            <h2>📊 Balance General de Existencias</h2>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <button class="main-btn btn-print" onclick="imprimirBalance()" style="padding: 8px 15px; font-size: 0.9em;">🖨️ Guardar o Imprimir Reporte</button>
-                <button class="main-btn" onclick="exportarExcelBalance()" style="background: #1f7246; color: white; padding: 8px 15px; font-size: 0.9em;">📥 Exportar Excel</button>
-                <div style="width: 250px;">
-                    <input type="text" id="searchBalance" placeholder="🔍 Filtrar por nombre...">
-                </div>
-            </div>
-        </div>
-
-        <div class="metrics-grid no-print">
-            <div class="metric-card card-total active-filter" id="btnFilterAll" onclick="cambiarFiltroRango('all', this)">
-                <span class="metric-val" id="metaTotal">0</span>
-                Productos Totales
-            </div>
-            <div class="metric-card card-red" id="btnFilterRed" onclick="cambiarFiltroRango('red', this)">
-                <span class="metric-val" id="metaRed">0</span>
-                Crítico / Agotado (&lt; 5)
-            </div>
-            <div class="metric-card card-orange" id="btnFilterOrange" onclick="cambiarFiltroRango('orange', this)">
-                <span class="metric-val" id="metaOrange">0</span>
-                Alerta (10 - 20)
-            </div>
-            <div class="metric-card card-green" id="btnFilterGreen" onclick="cambiarFiltroRango('green', this)">
-                <span class="metric-val" id="metaGreen">0</span>
-                Óptimo (&gt; 20)
-            </div>
-        </div>
-
-        <div class="balance-container">
-            <table class="balance-table" id="balanceTable">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Marca</th>
-                        <th>Producto / Descripción</th>
-                        <th style="text-align: right;">Precio Promo ($)</th>
-                        <th style="text-align: center; width: 150px;">Existencia Actual</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td colspan="5" style="text-align: center; color: #888; padding: 30px;">Cargue el archivo Excel para procesar el balance de inventario.</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-</div>
-
-<script>
-    let inventory = [];
-    let cart = [];
-    let ordenAsc = true;
-    let currentStockFilter = 'all'; 
-    let datosFiltradosGlobal = []; 
-
-    document.getElementById('upload').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const data = new Uint8Array(event.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            inventory = [];
-            workbook.SheetNames.forEach(sheet => {
-                inventory = inventory.concat(XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
-            });
-            alert("Inventario cargado correctamente.");
-            
-            document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
-            document.getElementById('btnFilterAll').classList.add('active-filter');
-            currentStockFilter = 'all';
-            
-            procesarYRenderBalance();
-        };
-        reader.readAsArrayBuffer(file);
-    });
-
-    function sincronizarCliente() {
-        const nombre = document.getElementById('clienteNombre').value.trim();
-        const textoCliente = nombre !== "" ? nombre : "Ocasional";
-        
-        document.getElementById('labelClienteDinamico').innerText = textoCliente;
-        document.getElementById('printClienteNombre').innerHTML = `<strong>Cliente:</strong> ${textoCliente}`;
-    }
-
-    function getStockClass(existencia) {
-        const stock = parseFloat(existencia || 0);
-        if (stock <= 0) return 'stock-agotado'; 
-        if (stock < 5) return 'stock-red';
-        if (stock > 20) return 'stock-green';
-        if (stock > 10) return 'stock-orange';
-        return '';
-    }
-
-    function procesarYRenderBalance() {
-        let critico = 0, alerta = 0, optimo = 0;
-
-        inventory.forEach(item => {
-            const stock = parseFloat(item.EXISTENCIA || 0);
-            if (stock < 5) critico++;
-            else if (stock > 20) optimo++;
-            else if (stock > 10) alerta++;
-        });
-
-        document.getElementById('metaTotal').innerText = inventory.length;
-        document.getElementById('metaRed').innerText = critico;
-        document.getElementById('metaOrange').innerText = alerta;
-        document.getElementById('metaGreen').innerText = optimo;
-
-        datosFiltradosGlobal = inventory.filter(item => {
-            const stock = parseFloat(item.EXISTENCIA || 0);
-            if (currentStockFilter === 'red') return stock < 5;
-            if (currentStockFilter === 'orange') return stock > 10 && stock <= 20;
-            if (currentStockFilter === 'green') return stock > 20;
-            return true; 
-        });
-
-        const term = document.getElementById('searchBalance').value.toLowerCase();
-        if (term) {
-            datosFiltradosGlobal = datosFiltradosGlobal.filter(item => {
-                return (item.CODIGO || '').toString().toLowerCase().includes(term) ||
-                       (item.PRODUCTO || item.DESCRIPCION || '').toLowerCase().includes(term) ||
-                       (item.MARCA || '').toLowerCase().includes(term);
-            });
-        }
-
-        const tbody = document.querySelector('#balanceTable tbody');
-        tbody.innerHTML = '';
-
-        if (datosFiltradosGlobal.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 20px;">No hay productos en este rango o coincidentes con la búsqueda.</td></tr>`;
-            return;
-        }
-
-        datosFiltradosGlobal.forEach(item => {
-            const stockVal = parseFloat(item.EXISTENCIA || 0);
-            const colorClass = getStockClass(stockVal);
-            const precioPromo = parseFloat(item.PROMO || 0);
-
-            // Muestra el valor negativo o en cero de forma explícita en el balance
-            const labelStock = stockVal <= 0 ? `AGOTADO (${stockVal})` : stockVal;
-
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="color:#4a5568; font-weight:600;">#${item.CODIGO || 'S/C'}</td>
-                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-size:0.9em;">${item.MARCA || 'General'}</span></td>
-                <td><strong>${item.PRODUCTO || item.DESCRIPCION || 'Sin descripción'}</strong></td>
-                <td style="text-align: right; font-weight: bold; color: var(--accent);">$ ${precioPromo.toFixed(2)}</td>
-                <td style="text-align: center;"><span class="${colorClass === 'stock-agotado' ? 'stock-agotado' : 'stock-badge ' + colorClass}">${labelStock}</span></td>
-            `;
-            tbody.appendChild(tr);
+                }
+            }
         });
     }
 
@@ -877,19 +600,17 @@
 
     function ordenarPorPrecio() {
         if (inventory.length === 0) return alert("Cargue un inventario primero.");
-        
         inventory.sort((a, b) => {
             const precioA = parseFloat(a.PROMO || 0);
             const precioB = parseFloat(b.PROMO || 0);
             return ordenAsc ? precioA - precioB : precioB - precioA;
         });
-
         const btn = document.getElementById('btnSort');
         btn.innerHTML = ordenAsc ? "↑ Menor Precio" : "↓ Mayor Precio";
         ordenAsc = !ordenAsc;
 
-        if (searchInput.value.length >= 2) {
-            searchInput.dispatchEvent(new Event('input'));
+        if (document.getElementById('search').value.length >= 2) {
+            document.getElementById('search').dispatchEvent(new Event('input'));
         }
         procesarYRenderBalance();
     }
@@ -905,14 +626,8 @@
         if (term.length < 2) { resultsList.style.display = 'none'; return; }
 
         const searchWords = term.split(/\s+/).filter(word => word.length > 0);
-
         const matches = inventory.filter(item => {
-            const itemString = `
-                ${item.CODIGO || ''} 
-                ${item.PRODUCTO || ''} 
-                ${item.DESCRIPCION || ''} 
-                ${item.MARCA || ''}
-            `.toLowerCase();
+            const itemString = `${item.CODIGO || ''} ${item.PRODUCTO || ''} ${item.DESCRIPCION || ''} ${item.MARCA || ''}`.toLowerCase();
             return searchWords.every(word => itemString.includes(word));
         }).slice(0, 50);
 
@@ -921,8 +636,6 @@
             const precioEquivDolar = precioPromo * factor;
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
-
-            // Muestra dinámicamente la cantidad si es cero o negativa dentro de la etiqueta en el buscador
             const labelBuscador = stockVal <= 0 ? `AGOTADO (${stockVal})` : "Stock: " + stockVal;
 
             const div = document.createElement('div');
@@ -943,15 +656,14 @@
             
             div.onclick = () => {
                 if (stockVal <= 0) {
-                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: ${stockVal}).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
+                    const confirmarCero = confirm(`⚠️ ALERTA DE INVENTARIO:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no posee existencias válidas (Stock: ${stockVal}).\n\n¿Desea agregarlo de todos modos?`);
                     if (!confirmarCero) return; 
                 }
 
                 const cant = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}`, "1");
-                
                 if (cant > 0) {
                     if (parseInt(cant) > stockVal && stockVal > 0) {
-                        alert(`⚠️ AVISO DE INVENTARIO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} en existencias actuales.`);
+                        alert(`⚠️ AVISO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} disponibles.`);
                     }
 
                     const f = parseFloat(document.getElementById('factor').value);
@@ -965,7 +677,6 @@
                         bs: (precioPromo * f) * t 
                     });
                     actualizar();
-                    setTimeout(()=>searchInput.focus(), 100);
                 }
                 resultsList.style.display = 'none';
                 searchInput.value = '';
@@ -1013,8 +724,7 @@
 
     function prepararImpresion() {
         if (cart.length === 0) return alert("Agregue productos primero.");
-        const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
-
+        const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas\n2. Total en Bolívares", "1");
         restablecerVistaPrecios();
 
         if (opcion === "1") {
@@ -1025,115 +735,60 @@
             document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
             window.print();
             setTimeout(restablecerVistaPrecios, 1000);
-        } else {
-            alert("Selección cancelada.");
         }
     }
 
     function enviarWhatsApp() {
         if (cart.length === 0) return alert("Agregue productos primero.");
-        
-        const opcion = prompt("¿Qué formato de precios desea enviar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
-        if (opcion !== "1" && opcion !== "2") return alert("Selección cancelada.");
+        const opcion = prompt("¿Formatos de precios?\n1. Total en Divisas\n2. Total en Bolívares", "1");
+        if (opcion !== "1" && opcion !== "2") return;
 
         const cliente = document.getElementById('clienteNombre').value.trim();
-
         let texto = `📝 *PRESUPUESTO Y COTIZACIÓN*\n`;
-        if (cliente !== "") {
-            texto += `👤 *Cliente:* ${cliente}\n`;
-        }
+        if (cliente !== "") texto += `👤 *Cliente:* ${cliente}\n`;
         texto += `-------------------------------------------\n\n`;
 
         let tPromo = 0, tBs = 0, tPvpDolarTotal = 0;
-
         cart.forEach((item) => {
             const subPromo = item.p * item.c;
             const subBs = item.bs * item.c;
-            const subPvpDolar = item.pvp * item.c;
-            
-            tPromo += subPromo;
-            tBs += subBs;
-            tPvpDolarTotal += subPvpDolar;
+            tPromo += subPromo; tBs += subBs; tPvpDolarTotal += (item.pvp * item.c);
 
-            texto += `🔹 *${item.n}*\n`;
-            texto += `   Cant: ${item.c}`;
-            
-            if (opcion === "1") {
-                texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
-            } else {
-                texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}*\n\n`;
-            }
+            texto += `🔹 *${item.n}*\n   Cant: ${item.c}`;
+            if (opcion === "1") texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
+            else texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}*\n\n`;
         });
 
         texto += `-------------------------------------------\n`;
-        
-        if (opcion === "1") {
-            texto += `💰 *TOTAL EN DIVISAS:* *$ ${tPromo.toFixed(2)}*\n`;
-            texto += `_(Aplica solo para pago en efectivo divisas)_\n`;
-        } else {
-            const t = parseFloat(document.getElementById('tasa').value);
-            texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}*\n`;
-            texto += `👉 _Equiv. Ref: $ ${tPvpDolarTotal.toFixed(2)}_\n`;
-            texto += `📊 _Tasa BCV de referencia: Bs. ${t.toFixed(2)}_\n`;
-        }
-        
-        texto += `\n¡Quedamos a su completa disposición! 👍`;
+        if (opcion === "1") texto += `💰 *TOTAL EN DIVISAS:* *$ ${tPromo.toFixed(2)}*\n`;
+        else texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}*\n`;
 
-        restablecerVistaPrecios();
-
-        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
-        window.open(url, '_blank');
+        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
     }
 
     function limpiar() { 
-        if(confirm("¿Deseas vaciar la factura actual?")) { 
-            cart = []; 
-            document.getElementById('clienteNombre').value = ""; 
-            sincronizarCliente(); 
-            actualizar(); 
-        } 
+        if(confirm("¿Deseas vaciar la factura?")) { cart = []; document.getElementById('clienteNombre').value = ""; sincronizarCliente(); actualizar(); } 
     }
 
     function imprimirBalance() {
-        if (inventory.length === 0) return alert("Por favor, cargue un inventario primero.");
-        
-        const fechaActual = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        document.getElementById('printBalanceFecha').innerText = `Fecha y Hora de Emisión: ${fechaActual}`;
-        
-        let txtFiltro = "Todos los productos";
-        if (currentStockFilter === 'red') txtFiltro = "Rango: Críticos / Agotados (Menos de 5 unidades)";
-        if (currentStockFilter === 'orange') txtFiltro = "Rango: Alerta (Entre 10 y 20 unidades)";
-        if (currentStockFilter === 'green') txtFiltro = "Rango: Óptimo (Más de 20 unidades)";
-        
-        const term = document.getElementById('searchBalance').value;
-        if(term) txtFiltro += ` | Buscado por término: "${term}"`;
-        
-        document.getElementById('printBalanceFiltro').innerText = txtFiltro;
-
+        if (inventory.length === 0) return alert("Cargue un inventario primero.");
+        document.getElementById('printBalanceFecha').innerText = `Fecha y Hora: ${new Date().toLocaleString()}`;
         document.body.classList.add('print-balance-mode');
         window.print();
-        
-        setTimeout(() => {
-            document.body.classList.remove('print-balance-mode');
-        }, 500);
+        setTimeout(() => document.body.classList.remove('print-balance-mode'), 500);
     }
 
     function exportarExcelBalance() {
-        if (datosFiltradosGlobal.length === 0) return alert("No hay datos en el balance para exportar.");
-        
+        if (datosFiltradosGlobal.length === 0) return alert("No hay datos para exportar.");
         const rows = datosFiltradosGlobal.map(item => ({
-            "Código": item.CODIGO || 'S/C',
-            "Marca": item.MARCA || 'General',
+            "Código": item.CODIGO || 'S/C', "Marca": item.MARCA || 'General',
             "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
-            "Precio Promo ($)": parseFloat(item.PROMO || 0),
-            "Existencia Actual": parseInt(item.EXISTENCIA || 0)
+            "Precio Promo ($)": parseFloat(item.PROMO || 0), "Existencia Actual": parseInt(item.EXISTENCIA || 0)
         }));
-        
         const worksheet = XLSX.utils.json_to_sheet(rows);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Existencias");
-        
-        XLSX.writeFile(workbook, `Balance_Existencias_${currentStockFilter}.xlsx`);
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Balance");
+        XLSX.writeFile(workbook, `Balance_Existencias.xlsx`);
     }
 </script>
 </body>
