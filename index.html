@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Facturación y Balance - TechoFácil</title>
+    <title>Sistema de Facturación y Balance</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { 
@@ -136,9 +136,9 @@
 <body>
 
 <div class="container">
+    <!-- Encabezado de impresión de Factura sin marca comercial -->
     <div class="factura-header">
-        <h1>TECHO FÁCIL</h1>
-        <p>Presupuesto y Facturación</p>
+        <h1>PRESUPUESTO Y COTIZACIÓN</h1>
         <div style="text-align: left; margin-top: 15px; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-radius: 5px;">
             <span id="printClienteNombre"><strong>Cliente:</strong> Ocasional</span>
         </div>
@@ -166,6 +166,7 @@
         </div>
     </div>
 
+    <!-- Indicador visual del cliente en pantalla -->
     <div class="cliente-factura-vista no-print" id="vistaClienteCaja">
         👤 <strong>Cliente actual:</strong> <span id="labelClienteDinamico">Ocasional</span>
     </div>
@@ -173,7 +174,7 @@
     <div class="search-section no-print">
         <label><strong>🔍 Buscar Producto (Detalle por palabras):</strong></label>
         <div class="search-container">
-            <input type="text" id="search" placeholder="Ej: blanco 2 caras ferranova...">
+            <input type="text" id="search" placeholder="Ej: blanco 2 caras...">
             <button class="btn-sort" id="btnSort" onclick="ordenarPorPrecio()" title="Ordenar por precio">
                 <span>⇅</span> Ordenar
             </button>
@@ -219,7 +220,6 @@
     <div class="balance-section">
         
         <div class="print-only">
-            <h1>TECHO FÁCIL</h1>
             <h2>Balance General de Existencias de Productos</h2>
             <p id="printBalanceFecha">Fecha de emisión: --/--/----</p>
             <p id="printBalanceFiltro" style="font-weight: bold;">Rango de reporte: Todos los productos</p>
@@ -295,7 +295,7 @@
             workbook.SheetNames.forEach(sheet => {
                 inventory = inventory.concat(XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
             });
-            alert("Inventario de TechoFácil cargado correctamente.");
+            alert("Inventario cargado correctamente.");
             
             document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
             document.getElementById('btnFilterAll').classList.add('active-filter');
@@ -310,7 +310,6 @@
         const nombre = document.getElementById('clienteNombre').value.trim();
         const textoCliente = nombre !== "" ? nombre : "Ocasional";
         
-        // Sincroniza visualización en pantalla e impresión
         document.getElementById('labelClienteDinamico').innerText = textoCliente;
         document.getElementById('printClienteNombre').innerHTML = `<strong>Cliente:</strong> ${textoCliente}`;
     }
@@ -374,7 +373,7 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="color:#4a5568; font-weight:600;">#${item.CODIGO || 'S/C'}</td>
-                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-size:0.9em;">${item.MARCA || 'TechoFácil'}</span></td>
+                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-size:0.9em;">${item.MARCA || 'General'}</span></td>
                 <td><strong>${item.PRODUCTO || item.DESCRIPCION || 'Sin descripción'}</strong></td>
                 <td style="text-align: right; font-weight: bold; color: var(--accent);">$ ${precioPromo.toFixed(2)}</td>
                 <td style="text-align: center;"><span class="${colorClass === 'stock-agotado' ? 'stock-agotado' : 'stock-badge ' + colorClass}">${labelStock}</span></td>
@@ -449,7 +448,7 @@
             div.innerHTML = `
                 <div>
                     <small style="color:blue">#${item.CODIGO || 'S/C'}</small>
-                    <small style="background:#eee; padding:2px 5px; border-radius:3px; margin-left:5px;">${item.MARCA || 'TechoFácil'}</small><br>
+                    <small style="background:#eee; padding:2px 5px; border-radius:3px; margin-left:5px;">${item.MARCA || 'General'}</small><br>
                     <strong>${item.PRODUCTO || item.DESCRIPCION}</strong>
                 </div>
                 <div style="text-align: right">
@@ -557,8 +556,7 @@
 
         const cliente = document.getElementById('clienteNombre').value.trim();
 
-        let texto = `*TECHO FÁCIL* 📝\n`;
-        texto += `_Presupuesto y Cotización_\n`;
+        let texto = `📝 *PRESUPUESTO Y COTIZACIÓN*\n`;
         if (cliente !== "") {
             texto += `👤 *Cliente:* ${cliente}\n`;
         }
@@ -597,7 +595,7 @@
             texto += `📊 _Tasa BCV de referencia: Bs. ${t.toFixed(2)}_\n`;
         }
         
-        texto += `\n¡Gracias por preferir a TechoFácil! 👍`;
+        texto += `\n¡Quedamos a su completa disposición! 👍`;
 
         restablecerVistaPrecios();
 
@@ -608,7 +606,7 @@
     function limpiar() { 
         if(confirm("¿Deseas vaciar la factura actual?")) { 
             cart = []; 
-            document.getElementById('clienteNombre').value = ""; // Limpia el nombre del cliente
+            document.getElementById('clienteNombre').value = ""; 
             sincronizarCliente(); 
             actualizar(); 
         } 
@@ -643,7 +641,7 @@
         
         const rows = datosFiltradosGlobal.map(item => ({
             "Código": item.CODIGO || 'S/C',
-            "Marca": item.MARCA || 'TechoFácil',
+            "Marca": item.MARCA || 'General',
             "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
             "Precio Promo ($)": parseFloat(item.PROMO || 0),
             "Existencia Actual": parseInt(item.EXISTENCIA || 0)
@@ -653,7 +651,7 @@
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Existencias");
         
-        XLSX.writeFile(workbook, `Balance_Existencias_TechoFacil_${currentStockFilter}.xlsx`);
+        XLSX.writeFile(workbook, `Balance_Existencias_${currentStockFilter}.xlsx`);
     }
 </script>
 </body>
