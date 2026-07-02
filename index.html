@@ -46,7 +46,7 @@
         .stock-orange { background-color: var(--warning) !important; }
         .stock-green { background-color: var(--accent) !important; }
         
-        /* Animación parpadeante para Existencia Cero */
+        /* Animación parpadeante para Existencia Menor o Igual a Cero */
         @keyframes parpadeo-alerta {
             0% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
             50% { background-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.8); }
@@ -368,7 +368,8 @@
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
 
-            const labelStock = stockVal <= 0 ? "AGOTADO (0)" : stockVal;
+            // Muestra el valor negativo o en cero de forma explícita en el balance
+            const labelStock = stockVal <= 0 ? `AGOTADO (${stockVal})` : stockVal;
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -441,7 +442,8 @@
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
 
-            const labelBuscador = stockVal <= 0 ? "AGOTADO" : "Stock: " + stockVal;
+            // Muestra dinámicamente la cantidad si es cero o negativa dentro de la etiqueta en el buscador
+            const labelBuscador = stockVal <= 0 ? `AGOTADO (${stockVal})` : "Stock: " + stockVal;
 
             const div = document.createElement('div');
             div.className = 'result-item';
@@ -461,7 +463,7 @@
             
             div.onclick = () => {
                 if (stockVal <= 0) {
-                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: 0).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
+                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: ${stockVal}).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
                     if (!confirmarCero) return; 
                 }
 
