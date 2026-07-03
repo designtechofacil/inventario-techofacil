@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema de Facturación y Balance</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         :root { 
             --primary: #0056b3; 
@@ -28,7 +27,7 @@
         /* Buscador */
         .search-section { position: relative; margin-bottom: 30px; }
         .search-container { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
-        input[type="text"], input[type="number"], select { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
+        input[type="text"], input[type="number"] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
         .btn-sort { 
             background: white; border: 1px solid #ccc; border-radius: 6px; padding: 0 15px; height: 46px; cursor: pointer; font-size: 0.9em; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
@@ -85,7 +84,7 @@
         .btn-whatsapp { background: var(--whatsapp); color: white; }
         .btn-clear { background: #666; color: white; }
 
-        /* PANEL DE BALANCE DE INVENTARIO INFERIOR */
+        /* --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- */
         .balance-section { margin-top: 35px; border-top: 3px solid var(--dark); padding-top: 20px; }
         
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
@@ -107,46 +106,20 @@
         .balance-table td { padding: 10px 12px; border-bottom: 1px solid #eee; background: white; }
         .balance-table tr:hover td { background-color: #f1f5f9; }
 
-        /* Estilos específicos para la sección interactiva de la gráfica ocupando todo el ancho */
-        .charts-container { display: block; margin: 25px 0; }
-        .chart-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #e1e8ed; width: 100%; box-sizing: border-box; }
-        
-        /* Caja de Reseña Dinámica Multiproducto */
-        .review-box { background: #fffde7; border: 2px dashed #fbc02d; padding: 20px; border-radius: 8px; margin-top: 15px; display: none; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .review-header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
-        .review-title { font-size: 1.2em; font-weight: bold; color: #f57f17; margin: 0; }
-        .review-actions-bar { display: flex; gap: 8px; }
-        
-        .review-table-container { max-height: 250px; overflow-y: auto; background: white; border: 1px solid #f0e6c2; border-radius: 6px; }
-        .review-table { width: 100%; border-collapse: collapse; font-size: 0.9em; text-align: left; }
-        .review-table th { background: #fbc02d; color: #333; padding: 8px 12px; position: sticky; top: 0; z-index: 10; }
-        .review-table td { padding: 8px 12px; border-bottom: 1px solid #fbeaa0; color: #444; background: white; }
-        .review-table tr:hover td { background-color: #fffde7; }
-
         .hide-bs, .hide-usd { display: none !important; }
         .print-only { display: none; }
 
-        /* Configuración de clases de impresión dedicadas */
+        /* Modo de impresión general estructurado */
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
+            .no-print, .actions, .config-bar, .search-section, .delete-col, #resultsList { display: none !important; }
             
-            /* Estado Por Defecto (Imprimir Factura) */
-            body:not(.print-balance-mode):not(.print-group-mode) .balance-section,
-            body:not(.print-balance-mode):not(.print-group-mode) .charts-container,
-            body:not(.print-balance-mode):not(.print-group-mode) .review-box,
-            body:not(.print-balance-mode):not(.print-group-mode) .no-print,
-            body:not(.print-balance-mode):not(.print-group-mode) .actions,
-            body:not(.print-balance-mode):not(.print-group-mode) .config-bar,
-            body:not(.print-balance-mode):not(.print-group-mode) .search-section,
-            body:not(.print-balance-mode):not(.print-group-mode) .delete-col,
-            body:not(.print-balance-mode):not(.print-group-mode) #resultsList { display: none !important; }
-            
-            body:not(.print-balance-mode):not(.print-group-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
-            body:not(.print-balance-mode):not(.print-group-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
-            body:not(.print-balance-mode):not(.print-group-mode) .totales-container { grid-template-columns: 1fr; }
+            body:not(.print-balance-mode) .balance-section { display: none !important; }
+            body:not(.print-balance-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
+            body:not(.print-balance-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
+            body:not(.print-balance-mode) .totales-container { grid-template-columns: 1fr; }
 
-            /* MODO DE IMPRESIÓN 1: Balance General Completo */
             body.print-balance-mode .container > *:not(.balance-section) { display: none !important; }
             body.print-balance-mode .balance-section { display: block !important; margin: 0; padding: 0; border: none; }
             body.print-balance-mode .balance-header-row, body.print-balance-mode .metrics-grid { display: none !important; }
@@ -156,16 +129,6 @@
             body.print-balance-mode .balance-table th { background: #e2e8f0 !important; color: black !important; position: static; border: 1px solid #000; }
             body.print-balance-mode .balance-table td { border: 1px solid #000 !important; }
             body.print-balance-mode tr { page-break-inside: avoid; }
-
-            /* MODO DE IMPRESIÓN 2: Solo Grupo de Existencia Exacta Seleccionado */
-            body.print-group-mode .container > *:not(.review-box) { display: none !important; }
-            body.print-group-mode .review-box { display: block !important; background: white !important; border: none !important; padding: 0 !important; margin: 0 !important; width: 100% !important; }
-            body.print-group-mode .review-actions-bar { display: none !important; }
-            body.print-group-mode .review-table-container { max-height: none !important; overflow: visible !important; border: none !important; }
-            body.print-group-mode .review-table { width: 100% !important; border: 1px solid #000 !important; }
-            body.print-group-mode .review-table th { background: #f3f4f6 !important; color: black !important; border: 1px solid #000 !important; position: static !important; }
-            body.print-group-mode .review-table td { border: 1px solid #000 !important; background: white !important; }
-            body.print-group-mode tr { page-break-inside: avoid; }
         }
         .factura-header { display: none; }
     </style>
@@ -173,6 +136,7 @@
 <body>
 
 <div class="container">
+    <!-- Encabezado de impresión de Factura sin marca comercial -->
     <div class="factura-header">
         <h1>PRESUPUESTO Y COTIZACIÓN</h1>
         <div style="text-align: left; margin-top: 15px; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-radius: 5px;">
@@ -190,7 +154,7 @@
         </div>
         <div>
             <label>👤 Nombre del Cliente:</label>
-            <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez" oninput="sincronizarCliente()">
+            <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez / Inversiones J&R" oninput="sincronizarCliente()">
         </div>
         <div>
             <label>Tasa (Bs):</label>
@@ -202,6 +166,7 @@
         </div>
     </div>
 
+    <!-- Indicador visual del cliente en pantalla -->
     <div class="cliente-factura-vista no-print" id="vistaClienteCaja">
         👤 <strong>Cliente actual:</strong> <span id="labelClienteDinamico">Ocasional</span>
     </div>
@@ -252,40 +217,8 @@
         <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
     </div>
 
-    <div class="charts-container no-print">
-        <div class="chart-card">
-            <h3 style="margin:0 0 15px 0; color: var(--danger);">📉 Cantidad de Productos por Niveles de Existencia (0 a 5)</h3>
-            <div style="position: relative; height:280px;">
-                <canvas id="chartBajasExistencias"></canvas>
-            </div>
-        </div>
-    </div>
-
-    <div id="boxResena" class="review-box">
-        <div class="review-header-flex">
-            <h4 class="review-title" id="tituloResenaGrupos">📋 Productos en el Grupo Seleccionado</h4>
-            <div class="review-actions-bar no-print">
-                <button class="main-btn" onclick="imprimirGrupoSeleccionado()" style="background: var(--primary); color: white; padding: 6px 12px; font-size: 0.85em;">🖨️ Imprimir / PDF</button>
-                <button class="main-btn" onclick="exportarExcelGrupoSeleccionado()" style="background: #1f7246; color: white; padding: 6px 12px; font-size: 0.85em;">📥 Guardar Excel</button>
-            </div>
-        </div>
-        <div class="review-table-container">
-            <table class="review-table" id="tablaResenaGrupos">
-                <thead>
-                    <tr>
-                        <th>Código</th>
-                        <th>Marca</th>
-                        <th>Descripción</th>
-                        <th>Existencia</th>
-                        <th>Precio Promo</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
-
     <div class="balance-section">
+        
         <div class="print-only">
             <h2>Balance General de Existencias de Productos</h2>
             <p id="printBalanceFecha">Fecha de emisión: --/--/----</p>
@@ -296,7 +229,7 @@
         <div class="balance-header-row no-print">
             <h2>📊 Balance General de Existencias</h2>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <button class="main-btn btn-print" onclick="imprimirBalance()" style="padding: 8px 15px; font-size: 0.9em;">🖨️ Imprimir Reporte</button>
+                <button class="main-btn btn-print" onclick="imprimirBalance()" style="padding: 8px 15px; font-size: 0.9em;">🖨️ Guardar o Imprimir Reporte</button>
                 <button class="main-btn" onclick="exportarExcelBalance()" style="background: #1f7246; color: white; padding: 8px 15px; font-size: 0.9em;">📥 Exportar Excel</button>
                 <div style="width: 250px;">
                     <input type="text" id="searchBalance" placeholder="🔍 Filtrar por nombre...">
@@ -342,6 +275,7 @@
             </table>
         </div>
     </div>
+
 </div>
 
 <script>
@@ -350,10 +284,6 @@
     let ordenAsc = true;
     let currentStockFilter = 'all'; 
     let datosFiltradosGlobal = []; 
-    
-    let chartLowInstance = null;
-    let gruposDeStock = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
-    let ultimoGrupoSeleccionado = -1; // Almacena el número de stock seleccionado actual
 
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
@@ -372,7 +302,6 @@
             currentStockFilter = 'all';
             
             procesarYRenderBalance();
-            renderizarGraficas();
         };
         reader.readAsArrayBuffer(file);
     });
@@ -380,6 +309,7 @@
     function sincronizarCliente() {
         const nombre = document.getElementById('clienteNombre').value.trim();
         const textoCliente = nombre !== "" ? nombre : "Ocasional";
+        
         document.getElementById('labelClienteDinamico').innerText = textoCliente;
         document.getElementById('printClienteNombre').innerHTML = `<strong>Cliente:</strong> ${textoCliente}`;
     }
@@ -429,7 +359,7 @@
         tbody.innerHTML = '';
 
         if (datosFiltradosGlobal.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 20px;">No hay productos correspondientes.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #888; padding: 20px;">No hay productos en este rango o coincidentes con la búsqueda.</td></tr>`;
             return;
         }
 
@@ -437,6 +367,8 @@
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
+
+            // Muestra el valor negativo o en cero de forma explícita en el balance
             const labelStock = stockVal <= 0 ? `AGOTADO (${stockVal})` : stockVal;
 
             const tr = document.createElement('tr');
@@ -448,141 +380,6 @@
                 <td style="text-align: center;"><span class="${colorClass === 'stock-agotado' ? 'stock-agotado' : 'stock-badge ' + colorClass}">${labelStock}</span></td>
             `;
             tbody.appendChild(tr);
-        });
-    }
-
-    function mostrarProductosDelGrupo(nivelStock) {
-        ultimoGrupoSeleccionado = nivelStock;
-        const productos = gruposDeStock[nivelStock] || [];
-        const titulo = document.getElementById('tituloResenaGrupos');
-        const tbody = document.querySelector('#tablaResenaGrupos tbody');
-        
-        titulo.innerText = `📋 Lista de Productos con Existencia Exacta: [${nivelStock}] (Encontrados: ${productos.length})`;
-        tbody.innerHTML = '';
-
-        if(productos.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color:#777; padding: 15px;">No hay productos en esta categoría.</td></tr>`;
-        } else {
-            productos.forEach(item => {
-                const stockReal = parseFloat(item.EXISTENCIA || 0);
-                const precio = parseFloat(item.PROMO || 0);
-                tbody.innerHTML += `
-                    <tr>
-                        <td><strong>#${item.CODIGO || 'S/C'}</strong></td>
-                        <td><span style="background:#f1f5f9; padding:2px 5px; border-radius:3px;">${item.MARCA || 'General'}</span></td>
-                        <td>${item.PRODUCTO || item.DESCRIPCION || 'Sin nombre'}</td>
-                        <td><span class="stock-badge ${stockReal <= 0 ? 'stock-red' : 'stock-orange'}">${stockReal}</span></td>
-                        <td style="font-weight: bold; color: var(--accent);">$ ${precio.toFixed(2)}</td>
-                    </tr>
-                `;
-            });
-        }
-
-        document.getElementById('boxResena').style.display = 'block';
-        document.getElementById('boxResena').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    /* 🖨️ ACCIÓN: IMPRIMIR O DEJAR LISTO PARA GUARDAR COMO PDF EL GRUPO ACTUAL */
-    function imprimirGrupoSeleccionado() {
-        if(ultimoGrupoSeleccionado === -1) return alert("Seleccione primero un grupo de la gráfica.");
-        document.body.classList.add('print-group-mode');
-        window.print();
-        setTimeout(() => document.body.classList.remove('print-group-mode'), 500);
-    }
-
-    /* 📥 ACCIÓN: EXPORTAR A EXCEL SÓLO EL GRUPO SELECCIONADO DE LA GRÁFICA */
-    function exportarExcelGrupoSeleccionado() {
-        if(ultimoGrupoSeleccionado === -1) return alert("Seleccione primero un grupo de la gráfica.");
-        const productos = gruposDeStock[ultimoGrupoSeleccionado] || [];
-        if (productos.length === 0) return alert("No hay datos en este grupo para exportar.");
-        
-        const rows = productos.map(item => ({
-            "Código": item.CODIGO || 'S/C',
-            "Marca": item.MARCA || 'General',
-            "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
-            "Existencia": parseFloat(item.EXISTENCIA || 0),
-            "Precio Promo ($)": parseFloat(item.PROMO || 0)
-        }));
-        
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, `Stock Exacto ${ultimoGrupoSeleccionado}`);
-        XLSX.writeFile(workbook, `Productos_Stock_Exacto_${ultimoGrupoSeleccionado}.xlsx`);
-    }
-
-    function renderizarGraficas() {
-        if (inventory.length === 0) return;
-        gruposDeStock = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [] };
-
-        inventory.forEach(item => {
-            const s = parseFloat(item.EXISTENCIA || 0);
-            if (s <= 0) {
-                gruposDeStock[0].push(item); 
-            } else if (s === 1) {
-                gruposDeStock[1].push(item);
-            } else if (s === 2) {
-                gruposDeStock[2].push(item);
-            } else if (s === 3) {
-                gruposDeStock[3].push(item);
-            } else if (s === 4) {
-                gruposDeStock[4].push(item);
-            } else if (s === 5) {
-                gruposDeStock[5].push(item);
-            }
-        });
-
-        const labelsGrupos = [
-            'Totalmente en 0 / Negativos',
-            'Existencia de 1 unidad',
-            'Existencia de 2 unidades',
-            'Existencia de 3 unidades',
-            'Existencia de 4 unidades',
-            'Existencia de 5 unidades'
-        ];
-
-        const dataVolumen = [
-            gruposDeStock[0].length,
-            gruposDeStock[1].length,
-            gruposDeStock[2].length,
-            gruposDeStock[3].length,
-            gruposDeStock[4].length,
-            gruposDeStock[5].length
-        ];
-
-        if (chartLowInstance) chartLowInstance.destroy();
-        const ctxLow = document.getElementById('chartBajasExistencias').getContext('2d');
-        
-        chartLowInstance = new Chart(ctxLow, {
-            type: 'bar',
-            data: {
-                labels: labelsGrupos,
-                datasets: [{
-                    label: 'Cantidad de Productos Únicos',
-                    data: dataVolumen,
-                    backgroundColor: ['#ff0000', '#d9534f', '#f39c12', '#e67e22', '#3498db', '#9b59b6'],
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                indexAxis: 'y', 
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { 
-                    legend: { display: false }
-                },
-                scales: { 
-                    x: { 
-                        beginAtZero: true,
-                        title: { display: true, text: 'Número total de productos en este grupo' }
-                    } 
-                },
-                onClick: (e, activeElements) => {
-                    if (activeElements.length > 0) {
-                        const index = activeElements[0].index; 
-                        mostrarProductosDelGrupo(index);
-                    }
-                }
-            }
         });
     }
 
@@ -600,17 +397,19 @@
 
     function ordenarPorPrecio() {
         if (inventory.length === 0) return alert("Cargue un inventario primero.");
+        
         inventory.sort((a, b) => {
             const precioA = parseFloat(a.PROMO || 0);
             const precioB = parseFloat(b.PROMO || 0);
             return ordenAsc ? precioA - precioB : precioB - precioA;
         });
+
         const btn = document.getElementById('btnSort');
         btn.innerHTML = ordenAsc ? "↑ Menor Precio" : "↓ Mayor Precio";
         ordenAsc = !ordenAsc;
 
-        if (document.getElementById('search').value.length >= 2) {
-            document.getElementById('search').dispatchEvent(new Event('input'));
+        if (searchInput.value.length >= 2) {
+            searchInput.dispatchEvent(new Event('input'));
         }
         procesarYRenderBalance();
     }
@@ -626,8 +425,14 @@
         if (term.length < 2) { resultsList.style.display = 'none'; return; }
 
         const searchWords = term.split(/\s+/).filter(word => word.length > 0);
+
         const matches = inventory.filter(item => {
-            const itemString = `${item.CODIGO || ''} ${item.PRODUCTO || ''} ${item.DESCRIPCION || ''} ${item.MARCA || ''}`.toLowerCase();
+            const itemString = `
+                ${item.CODIGO || ''} 
+                ${item.PRODUCTO || ''} 
+                ${item.DESCRIPCION || ''} 
+                ${item.MARCA || ''}
+            `.toLowerCase();
             return searchWords.every(word => itemString.includes(word));
         }).slice(0, 50);
 
@@ -636,6 +441,8 @@
             const precioEquivDolar = precioPromo * factor;
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
+
+            // Muestra dinámicamente la cantidad si es cero o negativa dentro de la etiqueta en el buscador
             const labelBuscador = stockVal <= 0 ? `AGOTADO (${stockVal})` : "Stock: " + stockVal;
 
             const div = document.createElement('div');
@@ -656,14 +463,15 @@
             
             div.onclick = () => {
                 if (stockVal <= 0) {
-                    const confirmarCero = confirm(`⚠️ ALERTA DE INVENTARIO:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no posee existencias válidas (Stock: ${stockVal}).\n\n¿Desea agregarlo de todos modos?`);
+                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: ${stockVal}).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
                     if (!confirmarCero) return; 
                 }
 
                 const cant = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}`, "1");
+                
                 if (cant > 0) {
                     if (parseInt(cant) > stockVal && stockVal > 0) {
-                        alert(`⚠️ AVISO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} disponibles.`);
+                        alert(`⚠️ AVISO DE INVENTARIO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} en existencias actuales.`);
                     }
 
                     const f = parseFloat(document.getElementById('factor').value);
@@ -677,6 +485,7 @@
                         bs: (precioPromo * f) * t 
                     });
                     actualizar();
+                    setTimeout(()=>searchInput.focus(), 100);
                 }
                 resultsList.style.display = 'none';
                 searchInput.value = '';
@@ -724,7 +533,8 @@
 
     function prepararImpresion() {
         if (cart.length === 0) return alert("Agregue productos primero.");
-        const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas\n2. Total en Bolívares", "1");
+        const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
+
         restablecerVistaPrecios();
 
         if (opcion === "1") {
@@ -735,60 +545,115 @@
             document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
             window.print();
             setTimeout(restablecerVistaPrecios, 1000);
+        } else {
+            alert("Selección cancelada.");
         }
     }
 
     function enviarWhatsApp() {
         if (cart.length === 0) return alert("Agregue productos primero.");
-        const opcion = prompt("¿Formatos de precios?\n1. Total en Divisas\n2. Total en Bolívares", "1");
-        if (opcion !== "1" && opcion !== "2") return;
+        
+        const opcion = prompt("¿Qué formato de precios desea enviar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
+        if (opcion !== "1" && opcion !== "2") return alert("Selección cancelada.");
 
         const cliente = document.getElementById('clienteNombre').value.trim();
+
         let texto = `📝 *PRESUPUESTO Y COTIZACIÓN*\n`;
-        if (cliente !== "") texto += `👤 *Cliente:* ${cliente}\n`;
+        if (cliente !== "") {
+            texto += `👤 *Cliente:* ${cliente}\n`;
+        }
         texto += `-------------------------------------------\n\n`;
 
         let tPromo = 0, tBs = 0, tPvpDolarTotal = 0;
+
         cart.forEach((item) => {
             const subPromo = item.p * item.c;
             const subBs = item.bs * item.c;
-            tPromo += subPromo; tBs += subBs; tPvpDolarTotal += (item.pvp * item.c);
+            const subPvpDolar = item.pvp * item.c;
+            
+            tPromo += subPromo;
+            tBs += subBs;
+            tPvpDolarTotal += subPvpDolar;
 
-            texto += `🔹 *${item.n}*\n   Cant: ${item.c}`;
-            if (opcion === "1") texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
-            else texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}*\n\n`;
+            texto += `🔹 *${item.n}*\n`;
+            texto += `   Cant: ${item.c}`;
+            
+            if (opcion === "1") {
+                texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
+            } else {
+                texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}*\n\n`;
+            }
         });
 
         texto += `-------------------------------------------\n`;
-        if (opcion === "1") texto += `💰 *TOTAL EN DIVISAS:* *$ ${tPromo.toFixed(2)}*\n`;
-        else texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}*\n`;
+        
+        if (opcion === "1") {
+            texto += `💰 *TOTAL EN DIVISAS:* *$ ${tPromo.toFixed(2)}*\n`;
+            texto += `_(Aplica solo para pago en efectivo divisas)_\n`;
+        } else {
+            const t = parseFloat(document.getElementById('tasa').value);
+            texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}*\n`;
+            texto += `👉 _Equiv. Ref: $ ${tPvpDolarTotal.toFixed(2)}_\n`;
+            texto += `📊 _Tasa BCV de referencia: Bs. ${t.toFixed(2)}_\n`;
+        }
+        
+        texto += `\n¡Quedamos a su completa disposición! 👍`;
 
-        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`, '_blank');
+        restablecerVistaPrecios();
+
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+        window.open(url, '_blank');
     }
 
     function limpiar() { 
-        if(confirm("¿Deseas vaciar la factura?")) { cart = []; document.getElementById('clienteNombre').value = ""; sincronizarCliente(); actualizar(); } 
+        if(confirm("¿Deseas vaciar la factura actual?")) { 
+            cart = []; 
+            document.getElementById('clienteNombre').value = ""; 
+            sincronizarCliente(); 
+            actualizar(); 
+        } 
     }
 
     function imprimirBalance() {
-        if (inventory.length === 0) return alert("Cargue un inventario primero.");
-        document.getElementById('printBalanceFecha').innerText = `Fecha y Hora: ${new Date().toLocaleString()}`;
+        if (inventory.length === 0) return alert("Por favor, cargue un inventario primero.");
+        
+        const fechaActual = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        document.getElementById('printBalanceFecha').innerText = `Fecha y Hora de Emisión: ${fechaActual}`;
+        
+        let txtFiltro = "Todos los productos";
+        if (currentStockFilter === 'red') txtFiltro = "Rango: Críticos / Agotados (Menos de 5 unidades)";
+        if (currentStockFilter === 'orange') txtFiltro = "Rango: Alerta (Entre 10 y 20 unidades)";
+        if (currentStockFilter === 'green') txtFiltro = "Rango: Óptimo (Más de 20 unidades)";
+        
+        const term = document.getElementById('searchBalance').value;
+        if(term) txtFiltro += ` | Buscado por término: "${term}"`;
+        
+        document.getElementById('printBalanceFiltro').innerText = txtFiltro;
+
         document.body.classList.add('print-balance-mode');
         window.print();
-        setTimeout(() => document.body.classList.remove('print-balance-mode'), 500);
+        
+        setTimeout(() => {
+            document.body.classList.remove('print-balance-mode');
+        }, 500);
     }
 
     function exportarExcelBalance() {
-        if (datosFiltradosGlobal.length === 0) return alert("No hay datos para exportar.");
+        if (datosFiltradosGlobal.length === 0) return alert("No hay datos en el balance para exportar.");
+        
         const rows = datosFiltradosGlobal.map(item => ({
-            "Código": item.CODIGO || 'S/C', "Marca": item.MARCA || 'General',
+            "Código": item.CODIGO || 'S/C',
+            "Marca": item.MARCA || 'General',
             "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
-            "Precio Promo ($)": parseFloat(item.PROMO || 0), "Existencia Actual": parseInt(item.EXISTENCIA || 0)
+            "Precio Promo ($)": parseFloat(item.PROMO || 0),
+            "Existencia Actual": parseInt(item.EXISTENCIA || 0)
         }));
+        
         const worksheet = XLSX.utils.json_to_sheet(rows);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Balance");
-        XLSX.writeFile(workbook, `Balance_Existencias.xlsx`);
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Existencias");
+        
+        XLSX.writeFile(workbook, `Balance_Existencias_${currentStockFilter}.xlsx`);
     }
 </script>
 </body>
