@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Facturación y Balance</title>
+    <title>Sistema de Facturación y Balance - TechoFácil</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { 
@@ -46,7 +46,7 @@
         .stock-orange { background-color: var(--warning) !important; }
         .stock-green { background-color: var(--accent) !important; }
         
-        /* Animación parpadeante para Existencia Menor o Igual a Cero */
+        /* Animación parpadeante para Existencia Cero */
         @keyframes parpadeo-alerta {
             0% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
             50% { background-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.8); }
@@ -136,9 +136,9 @@
 <body>
 
 <div class="container">
-    <!-- Encabezado de impresión de Factura sin marca comercial -->
     <div class="factura-header">
-        <h1>PRESUPUESTO Y COTIZACIÓN</h1>
+        <h1>TECHO FÁCIL</h1>
+        <p>Presupuesto y Facturación</p>
         <div style="text-align: left; margin-top: 15px; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-radius: 5px;">
             <span id="printClienteNombre"><strong>Cliente:</strong> Ocasional</span>
         </div>
@@ -166,7 +166,6 @@
         </div>
     </div>
 
-    <!-- Indicador visual del cliente en pantalla -->
     <div class="cliente-factura-vista no-print" id="vistaClienteCaja">
         👤 <strong>Cliente actual:</strong> <span id="labelClienteDinamico">Ocasional</span>
     </div>
@@ -174,7 +173,7 @@
     <div class="search-section no-print">
         <label><strong>🔍 Buscar Producto (Detalle por palabras):</strong></label>
         <div class="search-container">
-            <input type="text" id="search" placeholder="Ej: blanco 2 caras...">
+            <input type="text" id="search" placeholder="Ej: blanco 2 caras ferranova...">
             <button class="btn-sort" id="btnSort" onclick="ordenarPorPrecio()" title="Ordenar por precio">
                 <span>⇅</span> Ordenar
             </button>
@@ -220,6 +219,7 @@
     <div class="balance-section">
         
         <div class="print-only">
+            <h1>TECHO FÁCIL</h1>
             <h2>Balance General de Existencias de Productos</h2>
             <p id="printBalanceFecha">Fecha de emisión: --/--/----</p>
             <p id="printBalanceFiltro" style="font-weight: bold;">Rango de reporte: Todos los productos</p>
@@ -295,7 +295,7 @@
             workbook.SheetNames.forEach(sheet => {
                 inventory = inventory.concat(XLSX.utils.sheet_to_json(workbook.Sheets[sheet]));
             });
-            alert("Inventario cargado correctamente.");
+            alert("Inventario de TechoFácil cargado correctamente.");
             
             document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('active-filter'));
             document.getElementById('btnFilterAll').classList.add('active-filter');
@@ -310,6 +310,7 @@
         const nombre = document.getElementById('clienteNombre').value.trim();
         const textoCliente = nombre !== "" ? nombre : "Ocasional";
         
+        // Sincroniza visualización en pantalla e impresión
         document.getElementById('labelClienteDinamico').innerText = textoCliente;
         document.getElementById('printClienteNombre').innerHTML = `<strong>Cliente:</strong> ${textoCliente}`;
     }
@@ -368,13 +369,12 @@
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
 
-            // Muestra el valor negativo o en cero de forma explícita en el balance
-            const labelStock = stockVal <= 0 ? `AGOTADO (${stockVal})` : stockVal;
+            const labelStock = stockVal <= 0 ? "AGOTADO (0)" : stockVal;
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="color:#4a5568; font-weight:600;">#${item.CODIGO || 'S/C'}</td>
-                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-size:0.9em;">${item.MARCA || 'General'}</span></td>
+                <td><span style="background:#edf2f7; padding:2px 6px; border-radius:4px; font-size:0.9em;">${item.MARCA || 'TechoFácil'}</span></td>
                 <td><strong>${item.PRODUCTO || item.DESCRIPCION || 'Sin descripción'}</strong></td>
                 <td style="text-align: right; font-weight: bold; color: var(--accent);">$ ${precioPromo.toFixed(2)}</td>
                 <td style="text-align: center;"><span class="${colorClass === 'stock-agotado' ? 'stock-agotado' : 'stock-badge ' + colorClass}">${labelStock}</span></td>
@@ -442,15 +442,14 @@
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
 
-            // Muestra dinámicamente la cantidad si es cero o negativa dentro de la etiqueta en el buscador
-            const labelBuscador = stockVal <= 0 ? `AGOTADO (${stockVal})` : "Stock: " + stockVal;
+            const labelBuscador = stockVal <= 0 ? "AGOTADO" : "Stock: " + stockVal;
 
             const div = document.createElement('div');
             div.className = 'result-item';
             div.innerHTML = `
                 <div>
                     <small style="color:blue">#${item.CODIGO || 'S/C'}</small>
-                    <small style="background:#eee; padding:2px 5px; border-radius:3px; margin-left:5px;">${item.MARCA || 'General'}</small><br>
+                    <small style="background:#eee; padding:2px 5px; border-radius:3px; margin-left:5px;">${item.MARCA || 'TechoFácil'}</small><br>
                     <strong>${item.PRODUCTO || item.DESCRIPCION}</strong>
                 </div>
                 <div style="text-align: right">
@@ -463,7 +462,7 @@
             
             div.onclick = () => {
                 if (stockVal <= 0) {
-                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: ${stockVal}).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
+                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: 0).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
                     if (!confirmarCero) return; 
                 }
 
@@ -558,7 +557,8 @@
 
         const cliente = document.getElementById('clienteNombre').value.trim();
 
-        let texto = `📝 *PRESUPUESTO Y COTIZACIÓN*\n`;
+        let texto = `*Atendiendo a su solicitud* 📝\n`;
+        texto += `_Presupuesto y Cotización_\n`;
         if (cliente !== "") {
             texto += `👤 *Cliente:* ${cliente}\n`;
         }
@@ -597,7 +597,7 @@
             texto += `📊 _Tasa BCV de referencia: Bs. ${t.toFixed(2)}_\n`;
         }
         
-        texto += `\n¡Quedamos a su completa disposición! 👍`;
+        texto += `\n¡Gracias por preferir a TechoFácil! 👍`;
 
         restablecerVistaPrecios();
 
@@ -608,7 +608,7 @@
     function limpiar() { 
         if(confirm("¿Deseas vaciar la factura actual?")) { 
             cart = []; 
-            document.getElementById('clienteNombre').value = ""; 
+            document.getElementById('clienteNombre').value = ""; // Limpia el nombre del cliente
             sincronizarCliente(); 
             actualizar(); 
         } 
@@ -643,7 +643,7 @@
         
         const rows = datosFiltradosGlobal.map(item => ({
             "Código": item.CODIGO || 'S/C',
-            "Marca": item.MARCA || 'General',
+            "Marca": item.MARCA || 'TechoFácil',
             "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
             "Precio Promo ($)": parseFloat(item.PROMO || 0),
             "Existencia Actual": parseInt(item.EXISTENCIA || 0)
@@ -653,7 +653,7 @@
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Existencias");
         
-        XLSX.writeFile(workbook, `Balance_Existencias_${currentStockFilter}.xlsx`);
+        XLSX.writeFile(workbook, `Balance_Existencias_TechoFacil_${currentStockFilter}.xlsx`);
     }
 </script>
 </body>
