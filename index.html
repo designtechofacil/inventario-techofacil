@@ -466,10 +466,14 @@
                     if (!confirmarCero) return; 
                 }
 
-                const cant = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}`, "1");
+                let cantInput = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}\n(Puedes usar decimales como 1.5 o 3.25)`, "1");
+                
+                // Reemplaza comas por puntos en caso de que el usuario use coma decimal
+                if (cantInput) cantInput = cantInput.replace(',', '.');
+                const cant = parseFloat(cantInput);
                 
                 if (cant > 0) {
-                    if (parseInt(cant) > stockVal && stockVal > 0) {
+                    if (cant > stockVal && stockVal > 0) {
                         alert(`⚠️ AVISO DE INVENTARIO:\nEstás agregando ${cant} unidades, pero solo cuentas con ${stockVal} en existencias actuales.`);
                     }
 
@@ -478,7 +482,7 @@
                     cart.push({
                         cod: item.CODIGO || 'S/C',
                         n: item.PRODUCTO || item.DESCRIPCION,
-                        c: parseInt(cant),
+                        c: cant,
                         p: precioPromo, 
                         pvp: precioPromo * f, 
                         bs: (precioPromo * f) * t 
@@ -508,10 +512,13 @@
             tBs += subBs;
             tPvpDolarTotal += subPvpDolar;
 
+            // Muestra decimales limpios en la columna de cantidad
+            const cantAMostrar = item.c % 1 === 0 ? item.c : item.c.toString().replace('.', ',');
+
             body.innerHTML += `<tr>
                 <td style="color:#666">#${item.cod}</td>
                 <td>${item.n}</td>
-                <td>${item.c}</td>
+                <td>${cantAMostrar}</td>
                 <td class="col-usd">$ ${item.p.toFixed(2)}</td>
                 <td class="col-usd">$ ${subPromo.toFixed(2)}</td>
                 <td class="col-bs">Bs. ${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}</td>
@@ -575,8 +582,10 @@
             tBs += subBs;
             tPvpDolarTotal += subPvpDolar;
 
+            const cantAMostrar = item.c % 1 === 0 ? item.c : item.c.toString().replace('.', ',');
+
             texto += `🔹 *${item.n}*\n`;
-            texto += `   Cant: ${item.c}`;
+            texto += `   Cant: ${cantAMostrar}`;
             
             if (opcion === "1") {
                 texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
@@ -608,7 +617,7 @@
     function limpiar() { 
         if(confirm("¿Deseas vaciar la factura actual?")) { 
             cart = []; 
-            document.getElementById('clienteNombre').value = ""; // Limpia el nombre del cliente
+            document.getElementById('clienteNombre').value = ""; 
             sincronizarCliente(); 
             actualizar(); 
         } 
@@ -646,7 +655,7 @@
             "Marca": item.MARCA || 'TechoFácil',
             "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
             "Precio Promo ($)": parseFloat(item.PROMO || 0),
-            "Existencia Actual": parseInt(item.EXISTENCIA || 0)
+            "Existencia Actual": parseFloat(item.EXISTENCIA || 0)
         }));
         
         const worksheet = XLSX.utils.json_to_sheet(rows);
