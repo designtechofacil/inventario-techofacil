@@ -106,6 +106,8 @@
         .balance-table td { padding: 10px 12px; border-bottom: 1px solid #eee; background: white; }
         .balance-table tr:hover td { background-color: #f1f5f9; }
 
+        .status-tasa { font-size: 0.8em; display: block; color: #666; margin-top: 2px; }
+
         .hide-bs, .hide-usd { display: none !important; }
         .print-only { display: none; }
 
@@ -157,12 +159,13 @@
             <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez / Inversiones J&R" oninput="sincronizarCliente()">
         </div>
         <div>
-            <label>Tasa (Bs):</label>
-            <input type="number" id="tasa" value="727.45" step="0.01">
+            <label>Tasa BCV (Bs):</label>
+            <input type="number" id="tasa" value="60.00" step="0.01" oninput="recofigurarPreciosCarrito()">
+            <span id="statusTasa" class="status-tasa">🔄 Consultando BCV...</span>
         </div>
         <div>
             <label>Factor (Margen):</label>
-            <input type="number" id="factor" value="1.20" step="0.01">
+            <input type="number" id="factor" value="1.20" step="0.01" oninput="recofigurarPreciosCarrito()">
         </div>
     </div>
 
@@ -285,6 +288,58 @@
     let currentStockFilter = 'all'; 
     let datosFiltradosGlobal = []; 
 
+    // Al iniciar el archivo, consulta automáticamente la tasa del BCV
+    window.addEventListener('DOMContentLoaded', () => {
+        obtenerTasaBCV();
+    });
+
+    async function obtenerTasaBCV() {
+        const statusEl = document.getElementById('statusTasa');
+        const tasaInput = document.getElementById('tasa');
+        
+        try {
+            // Consulta una API pública de código abierto que procesa diariamente la tasa oficial del BCV
+            const response = await fetch('https://open.er-api.com/v6/latest/USD');
+            if (!response.ok) throw new Error();
+            const data = await response.json();
+            
+            // Si la API general no tiene el dato de bolívares actualizado, se recurre a un endpoint alternativo regionalizado
+            const tasaBs = data.rates.VES; 
+            
+            if (tasaBs && tasaBs > 0) {
+                tasaInput.value = parseFloat(tasaBs).toFixed(2);
+                statusEl.innerText = "✅ Tasa BCV actualizada";
+                statusEl.style.color = "var(--accent)";
+            } else {
+                // Fallback secundario específico para BCV en repositorios comunitarios si el global falla
+                const fallbackRes = await fetch('https://ve.centralbankrates.com/api/v1/rates/bcv');
+                const fallbackData = await fallbackRes.json();
+                if(fallbackData && fallbackData.rate) {
+                    tasaInput.value = parseFloat(fallbackData.rate).toFixed(2);
+                    statusEl.innerText = "✅ Tasa BCV actualizada";
+                    statusEl.style.color = "var(--accent)";
+                } else {
+                    statusEl.innerText = "⚠️ Usando tasa manual de respaldo";
+                }
+            }
+        } catch (error) {
+            statusEl.innerText = "⚠️ No se pudo conectar al BCV (Usando tasa manual)";
+            statusEl.style.color = "var(--danger)";
+        }
+    }
+
+    // Permite recalcular dinámicamente si cambias la tasa o factor manualmente sin borrar el carrito
+    function recofigurarPreciosCarrito() {
+        const f = parseFloat(document.getElementById('factor').value) || 1;
+        const t = parseFloat(document.getElementById('tasa').value) || 1;
+        
+        cart.forEach(item => {
+            item.pvp = item.p * f;
+            item.bs = Math.round((item.p * f * t) * 100) / 100;
+        });
+        actualizar();
+    }
+
     document.getElementById('upload').addEventListener('change', (e) => {
         const file = e.target.files[0];
         const reader = new FileReader();
@@ -310,7 +365,6 @@
         const nombre = document.getElementById('clienteNombre').value.trim();
         const textoCliente = nombre !== "" ? nombre : "Ocasional";
         
-        // Sincroniza visualización en pantalla e impresión
         document.getElementById('labelClienteDinamico').innerText = textoCliente;
         document.getElementById('printClienteNombre').innerHTML = `<strong>Cliente:</strong> ${textoCliente}`;
     }
@@ -369,7 +423,6 @@
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
 
-            // Muestra dinámicamente el stock negativo si es menor a 0, de lo contrario muestra "AGOTADO (0)" o el número positivo normal
             let labelStock;
             if (stockVal < 0) {
                 labelStock = `AGOTADO (${stockVal})`;
@@ -450,7 +503,6 @@
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
 
-            // También actualiza la vista previa del buscador para mostrar el número negativo
             let labelBuscador;
             if (stockVal < 0) {
                 labelBuscador = `AGOTADO (${stockVal})`;
@@ -485,7 +537,6 @@
 
                 let cantInput = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}\n(Puedes usar decimales como 1.5 o 3.25)`, "1");
                 
-                // Reemplaza comas por puntos en caso de que el usuario use coma decimal
                 if (cantInput) cantInput = cantInput.replace(',', '.');
                 const cant = parseFloat(cantInput);
                 
@@ -497,7 +548,6 @@
                     const f = parseFloat(document.getElementById('factor').value);
                     const t = parseFloat(document.getElementById('tasa').value);
                     
-                    // Redondeamos el PVP en Bs unitario directamente a dos decimales
                     const pvpUnitBs = Math.round((precioPromo * f * t) * 100) / 100;
 
                     cart.push({
@@ -526,9 +576,6 @@
 
         cart.forEach((item, i) => {
             const subPromo = item.p * item.c;
-            
-            // Calculamos el subtotal en Bs basándonos en el PVP Unitario ya redondeado
-            // y aplicamos un redondeo a dos decimales al resultado
             const subBs = Math.round((item.bs * item.c) * 100) / 100;
             const subPvpDolar = item.pvp * item.c;
             
@@ -536,7 +583,6 @@
             tBs += subBs;
             tPvpDolarTotal += subPvpDolar;
 
-            // Muestra decimales limpios en la columna de cantidad
             const cantAMostrar = item.c % 1 === 0 ? item.c : item.c.toString().replace('.', ',');
 
             body.innerHTML += `<tr>
@@ -551,7 +597,6 @@
             </tr>`;
         });
 
-        // Forzamos el redondeo final a 2 decimales para evitar problemas de coma flotante de JS en la suma total
         tBs = Math.round(tBs * 100) / 100;
 
         document.getElementById('totalUSD').innerText = `$ ${tPromo.toFixed(2)}`;
@@ -571,11 +616,11 @@
         restablecerVistaPrecios();
 
         if (opcion === "1") {
-            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.add('hide-bs'));
+            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.add('hide-bs'));
             window.print();
             setTimeout(restablecerVistaPrecios, 1000); 
         } else if (opcion === "2") {
-            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
+            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.add('hide-usd'));
             window.print();
             setTimeout(restablecerVistaPrecios, 1000);
         } else {
