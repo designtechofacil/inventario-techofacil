@@ -46,7 +46,7 @@
         .stock-orange { background-color: var(--warning) !important; }
         .stock-green { background-color: var(--accent) !important; }
         
-        /* Animación parpadeante para Existencia Cero */
+        /* Animación parpadeante para Existencia Cero o Negativa */
         @keyframes parpadeo-alerta {
             0% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
             50% { background-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.8); }
@@ -369,7 +369,15 @@
             const colorClass = getStockClass(stockVal);
             const precioPromo = parseFloat(item.PROMO || 0);
 
-            const labelStock = stockVal <= 0 ? "AGOTADO (0)" : stockVal;
+            // Muestra dinámicamente el stock negativo si es menor a 0, de lo contrario muestra "AGOTADO (0)" o el número positivo normal
+            let labelStock;
+            if (stockVal < 0) {
+                labelStock = `AGOTADO (${stockVal})`;
+            } else if (stockVal === 0) {
+                labelStock = "AGOTADO (0)";
+            } else {
+                labelStock = stockVal;
+            }
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -442,7 +450,15 @@
             const stockVal = parseFloat(item.EXISTENCIA || 0);
             const colorClass = getStockClass(stockVal);
 
-            const labelBuscador = stockVal <= 0 ? "AGOTADO" : "Stock: " + stockVal;
+            // También actualiza la vista previa del buscador para mostrar el número negativo
+            let labelBuscador;
+            if (stockVal < 0) {
+                labelBuscador = `AGOTADO (${stockVal})`;
+            } else if (stockVal === 0) {
+                labelBuscador = "AGOTADO";
+            } else {
+                labelBuscador = "Stock: " + stockVal;
+            }
 
             const div = document.createElement('div');
             div.className = 'result-item';
@@ -462,7 +478,8 @@
             
             div.onclick = () => {
                 if (stockVal <= 0) {
-                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" no tiene existencias (Stock: 0).\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
+                    const mensajeStock = stockVal < 0 ? `tiene existencias en negativo (${stockVal})` : "no tiene existencias (Stock: 0)";
+                    const confirmarCero = confirm(`⚠️ ALERTA DE SEGURIDAD:\nEl producto "${item.PRODUCTO || item.DESCRIPCION}" ${mensajeStock}.\n\n¿Está seguro de que desea incluirlo en la cotización/factura de todas formas?`);
                     if (!confirmarCero) return; 
                 }
 
@@ -479,13 +496,17 @@
 
                     const f = parseFloat(document.getElementById('factor').value);
                     const t = parseFloat(document.getElementById('tasa').value);
+                    
+                    // Redondeamos el PVP en Bs unitario directamente a dos decimales
+                    const pvpUnitBs = Math.round((precioPromo * f * t) * 100) / 100;
+
                     cart.push({
                         cod: item.CODIGO || 'S/C',
                         n: item.PRODUCTO || item.DESCRIPCION,
                         c: cant,
                         p: precioPromo, 
                         pvp: precioPromo * f, 
-                        bs: (precioPromo * f) * t 
+                        bs: pvpUnitBs 
                     });
                     actualizar();
                     setTimeout(()=>searchInput.focus(), 100);
@@ -505,7 +526,10 @@
 
         cart.forEach((item, i) => {
             const subPromo = item.p * item.c;
-            const subBs = item.bs * item.c;
+            
+            // Calculamos el subtotal en Bs basándonos en el PVP Unitario ya redondeado
+            // y aplicamos un redondeo a dos decimales al resultado
+            const subBs = Math.round((item.bs * item.c) * 100) / 100;
             const subPvpDolar = item.pvp * item.c;
             
             tPromo += subPromo;
@@ -521,14 +545,17 @@
                 <td>${cantAMostrar}</td>
                 <td class="col-usd">$ ${item.p.toFixed(2)}</td>
                 <td class="col-usd">$ ${subPromo.toFixed(2)}</td>
-                <td class="col-bs">Bs. ${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}</td>
-                <td class="col-bs"><strong>Bs. ${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}</strong></td>
+                <td class="col-bs">Bs. ${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
+                <td class="col-bs"><strong>Bs. ${subBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</strong></td>
                 <td class="no-print"><button onclick="cart.splice(${i},1);actualizar()" style="color:red;border:none;background:none;cursor:pointer;">❌</button></td>
             </tr>`;
         });
 
+        // Forzamos el redondeo final a 2 decimales para evitar problemas de coma flotante de JS en la suma total
+        tBs = Math.round(tBs * 100) / 100;
+
         document.getElementById('totalUSD').innerText = `$ ${tPromo.toFixed(2)}`;
-        document.getElementById('totalBS').innerText = `Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}`;
+        document.getElementById('totalBS').innerText = `Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
         document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolarTotal.toFixed(2)}`;
     }
 
@@ -575,7 +602,7 @@
 
         cart.forEach((item) => {
             const subPromo = item.p * item.c;
-            const subBs = item.bs * item.c;
+            const subBs = Math.round((item.bs * item.c) * 100) / 100;
             const subPvpDolar = item.pvp * item.c;
             
             tPromo += subPromo;
@@ -590,7 +617,7 @@
             if (opcion === "1") {
                 texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
             } else {
-                texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2})}*\n\n`;
+                texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}*\n\n`;
             }
         });
 
@@ -600,8 +627,9 @@
             texto += `💰 *TOTAL EN DIVISAS:* *$ ${tPromo.toFixed(2)}*\n`;
             texto += `_(Aplica solo para pago en efectivo divisas)_\n`;
         } else {
+            tBs = Math.round(tBs * 100) / 100;
             const t = parseFloat(document.getElementById('tasa').value);
-            texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}*\n`;
+            texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n`;
             texto += `👉 _Equiv. Ref: $ ${tPvpDolarTotal.toFixed(2)}_\n`;
             texto += `📊 _Tasa BCV de referencia: Bs. ${t.toFixed(2)}_\n`;
         }
