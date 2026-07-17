@@ -298,12 +298,10 @@
         const tasaInput = document.getElementById('tasa');
         
         try {
-            // Consulta una API pública de código abierto que procesa diariamente la tasa oficial del BCV
             const response = await fetch('https://open.er-api.com/v6/latest/USD');
             if (!response.ok) throw new Error();
             const data = await response.json();
             
-            // Si la API general no tiene el dato de bolívares actualizado, se recurre a un endpoint alternativo regionalizado
             const tasaBs = data.rates.VES; 
             
             if (tasaBs && tasaBs > 0) {
@@ -311,7 +309,6 @@
                 statusEl.innerText = "✅ Tasa BCV actualizada";
                 statusEl.style.color = "var(--accent)";
             } else {
-                // Fallback secundario específico para BCV en repositorios comunitarios si el global falla
                 const fallbackRes = await fetch('https://ve.centralbankrates.com/api/v1/rates/bcv');
                 const fallbackData = await fallbackRes.json();
                 if(fallbackData && fallbackData.rate) {
@@ -328,7 +325,6 @@
         }
     }
 
-    // Permite recalcular dinámicamente si cambias la tasa o factor manualmente sin borrar el carrito
     function recofigurarPreciosCarrito() {
         const f = parseFloat(document.getElementById('factor').value) || 1;
         const t = parseFloat(document.getElementById('tasa').value) || 1;
@@ -609,20 +605,23 @@
         document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.remove('hide-usd'));
     }
 
+    function ajustarParaImpresion(opcion) {
+        restablecerVistaPrecios();
+        if (opcion === "1") {
+            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.add('hide-bs'));
+        } else if (opcion === "2") {
+            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
+        }
+    }
+
     function prepararImpresion() {
         if (cart.length === 0) return alert("Agregue productos primero.");
         const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
 
-        restablecerVistaPrecios();
-
-        if (opcion === "1") {
-            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.add('hide-bs'));
+        if (opcion === "1" || opcion === "2") {
+            ajustarParaImpresion(opcion);
             window.print();
             setTimeout(restablecerVistaPrecios, 1000); 
-        } else if (opcion === "2") {
-            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.add('hide-usd'));
-            window.print();
-            setTimeout(restablecerVistaPrecios, 1000);
         } else {
             alert("Selección cancelada.");
         }
