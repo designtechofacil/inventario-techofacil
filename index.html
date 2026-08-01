@@ -29,6 +29,14 @@
         .search-container { display: flex; gap: 10px; align-items: center; margin-top: 5px; }
         input[type="text"], input[type="number"] { padding: 12px; border: 1px solid #ccc; border-radius: 6px; width: 100%; box-sizing: border-box; font-size: 16px; }
         
+        /* Input de cantidad en la tabla */
+        .input-cant-tabla {
+            width: 70px !important;
+            padding: 6px !important;
+            font-size: 14px !important;
+            text-align: center;
+        }
+
         .btn-sort { 
             background: white; border: 1px solid #ccc; border-radius: 6px; padding: 0 15px; height: 46px; cursor: pointer; font-size: 0.9em; white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 5px;
         }
@@ -77,10 +85,11 @@
         
         .val-grande { font-size: 1.6em; font-weight: bold; display: block; }
         .label-total { font-weight: bold; text-transform: uppercase; font-size: 0.8em; color: #555; }
-        .actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
+        .actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
         
         button.main-btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         .btn-print { background: var(--primary); color: white; }
+        .btn-ticket { background: #8e44ad; color: white; }
         .btn-whatsapp { background: var(--whatsapp); color: white; }
         .btn-clear { background: #666; color: white; }
 
@@ -111,17 +120,35 @@
         .hide-bs, .hide-usd { display: none !important; }
         .print-only { display: none; }
 
-        /* Modo de impresión general estructurado */
+        #ticketPos80 { display: none; }
+
         @media print {
             body { background: white; margin: 0; padding: 0; }
             .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
             .no-print, .actions, .config-bar, .search-section, .delete-col, #resultsList { display: none !important; }
             
-            body:not(.print-balance-mode) .balance-section { display: none !important; }
-            body:not(.print-balance-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
-            body:not(.print-balance-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
-            body:not(.print-balance-mode) .totales-container { grid-template-columns: 1fr; }
+            body:not(.print-balance-mode):not(.print-ticket-mode) .balance-section { display: none !important; }
+            body:not(.print-balance-mode):not(.print-ticket-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
+            body:not(.print-balance-mode):not(.print-ticket-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
+            body:not(.print-balance-mode):not(.print-ticket-mode) .totales-container { grid-template-columns: 1fr; }
 
+            /* MODO TICKET POS80 */
+            body.print-ticket-mode .container { display: none !important; }
+            body.print-ticket-mode #ticketPos80 {
+                display: block !important;
+                width: 72mm;
+                margin: 0;
+                padding: 0;
+                font-family: 'Courier New', Courier, monospace;
+                font-size: 11px;
+                color: #000;
+            }
+            @page {
+                size: auto;
+                margin: 0mm;
+            }
+
+            /* MODO BALANCE */
             body.print-balance-mode .container > *:not(.balance-section) { display: none !important; }
             body.print-balance-mode .balance-section { display: block !important; margin: 0; padding: 0; border: none; }
             body.print-balance-mode .balance-header-row, body.print-balance-mode .metrics-grid { display: none !important; }
@@ -216,7 +243,8 @@
     <div class="actions no-print">
         <button class="main-btn btn-clear" onclick="limpiar()">Vaciar</button>
         <button class="main-btn btn-whatsapp" onclick="enviarWhatsApp()">💬 Enviar por WhatsApp</button>
-        <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Factura</button>
+        <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Carta/A4</button>
+        <button class="main-btn btn-ticket" onclick="imprimirTicketPOS80()">🖨️ Ticket POS80</button>
     </div>
 
     <div class="balance-section">
@@ -281,6 +309,9 @@
 
 </div>
 
+<!-- PLANTILLA DE IMPRESIÓN PARA TIQUERA POS80 -->
+<div id="ticketPos80"></div>
+
 <script>
     let inventory = [];
     let cart = [];
@@ -288,7 +319,6 @@
     let currentStockFilter = 'all'; 
     let datosFiltradosGlobal = []; 
 
-    // Al iniciar el archivo, consulta automáticamente la tasa del BCV
     window.addEventListener('DOMContentLoaded', () => {
         obtenerTasaBCV();
     });
@@ -531,7 +561,7 @@
                     if (!confirmarCero) return; 
                 }
 
-                let cantInput = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}\n(Puedes usar decimales como 1.5 o 3.25)`, "1");
+                let cantInput = prompt(`Cantidad para: ${item.PRODUCTO || item.DESCRIPCION}\n(Puedes usar decimales como 1.5 o 3.25):`, "1");
                 
                 if (cantInput) cantInput = cantInput.replace(',', '.');
                 const cant = parseFloat(cantInput);
@@ -565,6 +595,15 @@
         resultsList.style.display = 'block';
     });
 
+    function cambiarCantidad(index, nuevaCant) {
+        let cant = parseFloat(nuevaCant);
+        if (isNaN(cant) || cant <= 0) {
+            cant = 1;
+        }
+        cart[index].c = cant;
+        actualizar();
+    }
+
     function actualizar() {
         const body = document.querySelector('#facturaTable tbody');
         body.innerHTML = '';
@@ -579,12 +618,13 @@
             tBs += subBs;
             tPvpDolarTotal += subPvpDolar;
 
-            const cantAMostrar = item.c % 1 === 0 ? item.c : item.c.toString().replace('.', ',');
-
             body.innerHTML += `<tr>
                 <td style="color:#666">#${item.cod}</td>
                 <td>${item.n}</td>
-                <td>${cantAMostrar}</td>
+                <td>
+                    <input type="number" class="input-cant-tabla no-print" value="${item.c}" min="0.1" step="any" onchange="cambiarCantidad(${i}, this.value)">
+                    <span class="print-only">${item.c}</span>
+                </td>
                 <td class="col-usd">$ ${item.p.toFixed(2)}</td>
                 <td class="col-usd">$ ${subPromo.toFixed(2)}</td>
                 <td class="col-bs">Bs. ${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}</td>
@@ -600,142 +640,219 @@
         document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolarTotal.toFixed(2)}`;
     }
 
-    function restablecerVistaPrecios() {
-        document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.remove('hide-bs'));
-        document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.remove('hide-usd'));
-    }
-
-    function ajustarParaImpresion(opcion) {
-        restablecerVistaPrecios();
-        if (opcion === "1") {
-            document.querySelectorAll('.col-bs, #boxBolivares').forEach(el => el.classList.add('hide-bs'));
-        } else if (opcion === "2") {
-            document.querySelectorAll('.col-usd, #boxDivisas').forEach(el => el.classList.add('hide-usd'));
-        }
-    }
-
     function prepararImpresion() {
-        if (cart.length === 0) return alert("Agregue productos primero.");
-        const opcion = prompt("¿Cómo desea cancelar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
+        if (cart.length === 0) return alert("El carrito está vacío.");
 
-        if (opcion === "1" || opcion === "2") {
-            ajustarParaImpresion(opcion);
-            window.print();
-            setTimeout(restablecerVistaPrecios, 1000); 
-        } else {
-            alert("Selección cancelada.");
+        const opcion = prompt("¿En qué moneda desea imprimir el documento?\n\n1 = En Dólares ($)\n2 = En Bolívares (Bs.)", "2");
+
+        if (!opcion) return; // Si cancela
+
+        const opcionLimpia = opcion.trim();
+        if (opcionLimpia !== "1" && opcionLimpia !== "2") {
+            return alert("Opción no válida. Ingrese 1 para Dólares o 2 para Bolívares.");
         }
+
+        const colsUsd = document.querySelectorAll('.col-usd');
+        const colsBs = document.querySelectorAll('.col-bs');
+        const boxDivisas = document.getElementById('boxDivisas');
+        const boxBolivares = document.getElementById('boxBolivares');
+
+        document.body.classList.remove('print-balance-mode', 'print-ticket-mode');
+
+        if (opcionLimpia === "1") {
+            // Opción 1: Solo Dólares
+            colsUsd.forEach(el => el.classList.remove('hide-usd'));
+            colsBs.forEach(el => el.classList.add('hide-bs'));
+            if(boxDivisas) boxDivisas.classList.remove('hide-usd');
+            if(boxBolivares) boxBolivares.classList.add('hide-bs');
+        } else {
+            // Opción 2: Solo Bolívares
+            colsUsd.forEach(el => el.classList.add('hide-usd'));
+            colsBs.forEach(el => el.classList.remove('hide-bs'));
+            if(boxDivisas) boxDivisas.classList.add('hide-usd');
+            if(boxBolivares) boxBolivares.classList.remove('hide-bs');
+        }
+
+        window.print();
+
+        // Restaurar la vista en pantalla después de la impresión
+        setTimeout(() => {
+            colsUsd.forEach(el => el.classList.remove('hide-usd'));
+            colsBs.forEach(el => el.classList.remove('hide-bs'));
+            if(boxDivisas) boxDivisas.classList.remove('hide-usd');
+            if(boxBolivares) boxBolivares.classList.remove('hide-bs');
+        }, 1000);
+    }
+
+    function imprimirTicketPOS80() {
+        if (cart.length === 0) return alert("El carrito está vacío.");
+        
+        const cliente = document.getElementById('clienteNombre').value.trim() || "Ocasional";
+        const tasa = parseFloat(document.getElementById('tasa').value) || 0;
+        let tPromo = 0, tBs = 0;
+
+        let itemsHTML = '';
+        cart.forEach(item => {
+            const subPromo = item.p * item.c;
+            const subBs = Math.round((item.bs * item.c) * 100) / 100;
+            tPromo += subPromo;
+            tBs += subBs;
+
+            itemsHTML += `
+                <div style="margin-bottom: 5px;">
+                    <div><strong>${item.n}</strong></div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>${item.c} x $${item.p.toFixed(2)}</span>
+                        <span>$${subPromo.toFixed(2)}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        const ticketDiv = document.getElementById('ticketPos80');
+        ticketDiv.innerHTML = `
+            <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">
+                <div style="font-size: 14px;">TECHO FÁCIL</div>
+                <div>Cotización / Comprobante</div>
+                <div>--------------------------------</div>
+            </div>
+            <div style="margin-bottom: 8px;">
+                <div><strong>Cliente:</strong> ${cliente}</div>
+                <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-VE')}</div>
+                <div><strong>Tasa BCV:</strong> Bs. ${tasa.toFixed(2)}</div>
+            </div>
+            <div>--------------------------------</div>
+            ${itemsHTML}
+            <div>--------------------------------</div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>TOTAL USD:</span>
+                <span>$${tPromo.toFixed(2)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold;">
+                <span>TOTAL BS:</span>
+                <span>Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}</span>
+            </div>
+            <div style="text-align: center; margin-top: 15px;">
+                <div>¡Gracias por su preferencia!</div>
+            </div>
+        `;
+
+        document.body.classList.add('print-ticket-mode');
+        window.print();
+        document.body.classList.remove('print-ticket-mode');
     }
 
     function enviarWhatsApp() {
-        if (cart.length === 0) return alert("Agregue productos primero.");
-        
-        const opcion = prompt("¿Qué formato de precios desea enviar?\n1. Total en Divisas (Precio Promo)\n2. Total en Bolívares (PVP Final)", "1");
-        if (opcion !== "1" && opcion !== "2") return alert("Selección cancelada.");
+        if (cart.length === 0) return alert("El carrito está vacío.");
 
-        const cliente = document.getElementById('clienteNombre').value.trim();
+        const opcion = prompt("¿En qué moneda desea enviar el presupuesto por WhatsApp?\n\n1 = En Dólares ($)\n2 = En Bolívares (Bs.)", "2");
 
-        let texto = `*Atendiendo a su solicitud* 📝\n`;
-        texto += `_Presupuesto y Cotización_\n`;
-        if (cliente !== "") {
-            texto += `👤 *Cliente:* ${cliente}\n`;
+        if (!opcion) return; 
+
+        const opcionLimpia = opcion.trim();
+        if (opcionLimpia !== "1" && opcionLimpia !== "2") {
+            return alert("Opción no válida. Ingrese 1 para Dólares o 2 para Bolívares.");
         }
-        texto += `-------------------------------------------\n\n`;
 
-        let tPromo = 0, tBs = 0, tPvpDolarTotal = 0;
+        const tasaNum = parseFloat(document.getElementById('tasa').value) || 0;
+        const tasaStr = tasaNum.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
-        cart.forEach((item) => {
-            const subPromo = item.p * item.c;
-            const subBs = Math.round((item.bs * item.c) * 100) / 100;
-            const subPvpDolar = item.pvp * item.c;
-            
-            tPromo += subPromo;
-            tBs += subBs;
-            tPvpDolarTotal += subPvpDolar;
+        let texto = `Atendiendo a su solicitud 📝\nPresupuesto y Cotización\n-------------------------------------------\n\n`;
 
-            const cantAMostrar = item.c % 1 === 0 ? item.c : item.c.toString().replace('.', ',');
+        let totalUSD_PVP = 0;
+        let totalBS = 0;
 
-            texto += `🔹 *${item.n}*\n`;
-            texto += `   Cant: ${cantAMostrar}`;
-            
-            if (opcion === "1") {
-                texto += `  |  U: $${item.p.toFixed(2)}  |  Sub: *$${subPromo.toFixed(2)}*\n\n`;
-            } else {
-                texto += `  |  U: Bs.${item.bs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}  |  Sub: *Bs.${subBs.toLocaleString('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2})}*\n\n`;
-            }
-        });
+        if (opcionLimpia === "2") {
+            // OPCIÓN 2: EN BOLÍVARES (BS)
+            cart.forEach(item => {
+                const subBs = Math.round((item.bs * item.c) * 100) / 100;
+                const subPvpDolar = item.pvp * item.c;
 
-        texto += `-------------------------------------------\n`;
-        
-        if (opcion === "1") {
-            texto += `💰 *TOTAL EN DIVISAS:* *$ ${tPromo.toFixed(2)}*\n`;
-            texto += `_(Aplica solo para pago en efectivo divisas)_\n`;
+                totalBS += subBs;
+                totalUSD_PVP += subPvpDolar;
+
+                const unitBsStr = item.bs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                const subBsStr = subBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+                texto += `🔹 ${item.n}\n   Cant: ${item.c}  |  U: Bs.${unitBsStr}  |  Sub: Bs.${subBsStr}\n\n`;
+            });
+
+            totalBS = Math.round(totalBS * 100) / 100;
+            const totalBsStr = totalBS.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const equivRefStr = totalUSD_PVP.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+            texto += `-------------------------------------------\n`;
+            texto += `💵 TOTAL EN BOLÍVARES: Bs. ${totalBsStr}\n`;
+            texto += `👉 Equiv. Ref: $ ${equivRefStr}\n`;
+            texto += `📊 Tasa BCV de referencia: Bs. ${tasaStr}\n\n`;
+            texto += `¡Gracias por preferir a TechoFácil! 👍`;
+
         } else {
-            tBs = Math.round(tBs * 100) / 100;
-            const t = parseFloat(document.getElementById('tasa').value);
-            texto += `💵 *TOTAL EN BOLÍVARES:* *Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2})}*\n`;
-            texto += `👉 _Equiv. Ref: $ ${tPvpDolarTotal.toFixed(2)}_\n`;
-            texto += `📊 _Tasa BCV de referencia: Bs. ${t.toFixed(2)}_\n`;
-        }
-        
-        texto += `\n¡Quedamos a su completa disposición! 👍`;
+            // OPCIÓN 1: EN DÓLARES ($)
+            let totalUSD_Promo = 0;
+            cart.forEach(item => {
+                const subPromo = item.p * item.c;
+                totalUSD_Promo += subPromo;
 
-        restablecerVistaPrecios();
+                const unitDolarStr = item.p.toFixed(2);
+                const subDolarStr = subPromo.toFixed(2);
+
+                texto += `🔹 ${item.n}\n   Cant: ${item.c}  |  U: $${unitDolarStr}  |  Sub: $${subDolarStr}\n\n`;
+            });
+
+            const totalDolarStr = totalUSD_Promo.toFixed(2);
+
+            texto += `-------------------------------------------\n`;
+            texto += `💵 TOTAL EN DIVISAS: $ ${totalDolarStr}\n`;
+            texto += `📊 Tasa BCV de referencia: Bs. ${tasaStr}\n\n`;
+            texto += `¡Gracias por preferir a TechoFácil! 👍`;
+        }
 
         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
         window.open(url, '_blank');
     }
 
-    function limpiar() { 
-        if(confirm("¿Deseas vaciar la factura actual?")) { 
-            cart = []; 
-            document.getElementById('clienteNombre').value = ""; 
-            sincronizarCliente(); 
-            actualizar(); 
-        } 
+    function limpiar() {
+        if (confirm("¿Desea vaciar la cotización actual?")) {
+            cart = [];
+            actualizar();
+        }
     }
 
     function imprimirBalance() {
-        if (inventory.length === 0) return alert("Por favor, cargue un inventario primero.");
+        if (inventory.length === 0) return alert("Cargue un inventario primero.");
         
-        const fechaActual = new Date().toLocaleDateString('es-VE', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        document.getElementById('printBalanceFecha').innerText = `Fecha y Hora de Emisión: ${fechaActual}`;
+        const fechaActual = new Date().toLocaleDateString('es-VE');
+        document.getElementById('printBalanceFecha').innerText = `Fecha de emisión: ${fechaActual}`;
         
-        let txtFiltro = "Todos los productos";
-        if (currentStockFilter === 'red') txtFiltro = "Rango: Críticos / Agotados (Menos de 5 unidades)";
-        if (currentStockFilter === 'orange') txtFiltro = "Rango: Alerta (Entre 10 y 20 unidades)";
-        if (currentStockFilter === 'green') txtFiltro = "Rango: Óptimo (Más de 20 unidades)";
-        
-        const term = document.getElementById('searchBalance').value;
-        if(term) txtFiltro += ` | Buscado por término: "${term}"`;
-        
-        document.getElementById('printBalanceFiltro').innerText = txtFiltro;
+        let textoFiltro = "Todos los productos";
+        if (currentStockFilter === 'red') textoFiltro = "Productos Críticos / Agotados (< 5)";
+        if (currentStockFilter === 'orange') textoFiltro = "Productos en Alerta (10 - 20)";
+        if (currentStockFilter === 'green') textoFiltro = "Productos en Nivel Óptimo (> 20)";
+        document.getElementById('printBalanceFiltro').innerText = `Rango de reporte: ${textoFiltro}`;
 
         document.body.classList.add('print-balance-mode');
         window.print();
-        
-        setTimeout(() => {
-            document.body.classList.remove('print-balance-mode');
-        }, 500);
+        document.body.classList.remove('print-balance-mode');
     }
 
     function exportarExcelBalance() {
-        if (datosFiltradosGlobal.length === 0) return alert("No hay datos en el balance para exportar.");
+        if (datosFiltradosGlobal.length === 0) return alert("No hay datos para exportar.");
         
-        const rows = datosFiltradosGlobal.map(item => ({
-            "Código": item.CODIGO || 'S/C',
-            "Marca": item.MARCA || 'TechoFácil',
-            "Producto / Descripción": item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
-            "Precio Promo ($)": parseFloat(item.PROMO || 0),
-            "Existencia Actual": parseFloat(item.EXISTENCIA || 0)
+        const dataExport = datosFiltradosGlobal.map(item => ({
+            Código: item.CODIGO || 'S/C',
+            Marca: item.MARCA || 'TechoFácil',
+            Producto: item.PRODUCTO || item.DESCRIPCION || 'Sin descripción',
+            'Precio Promo ($)': parseFloat(item.PROMO || 0),
+            Existencia: parseFloat(item.EXISTENCIA || 0)
         }));
-        
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Balance Existencias");
-        
-        XLSX.writeFile(workbook, `Balance_Existencias_TechoFacil_${currentStockFilter}.xlsx`);
+
+        const ws = XLSX.utils.json_to_sheet(dataExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Balance");
+        XLSX.writeFile(wb, `Balance_Inventario_TechoFacil.xlsx`);
     }
 </script>
+
 </body>
 </html>
