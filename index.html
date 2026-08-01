@@ -14,6 +14,8 @@
             --warning: #f39c12;
             --neutral: #7f8c8d;
             --whatsapp: #25D366;
+            --save: #008cba;
+            --load: #e67e22;
         }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 20px; background-color: #f0f4f8; }
         .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 25px; }
@@ -54,7 +56,6 @@
         .stock-orange { background-color: var(--warning) !important; }
         .stock-green { background-color: var(--accent) !important; }
         
-        /* Animación parpadeante para Existencia Cero o Negativa */
         @keyframes parpadeo-alerta {
             0% { background-color: var(--danger); box-shadow: 0 0 5px rgba(217,83,79,0.5); }
             50% { background-color: #ff0000; box-shadow: 0 0 15px rgba(255,0,0,0.8); }
@@ -87,15 +88,16 @@
         .label-total { font-weight: bold; text-transform: uppercase; font-size: 0.8em; color: #555; }
         .actions { margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
         
-        button.main-btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-print { background: var(--primary); color: white; }
-        .btn-ticket { background: #8e44ad; color: white; }
-        .btn-whatsapp { background: var(--whatsapp); color: white; }
-        .btn-clear { background: #666; color: white; }
+        button.main-btn { padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-print { background: var(--primary); }
+        .btn-ticket { background: #8e44ad; }
+        .btn-whatsapp { background: var(--whatsapp); }
+        .btn-save { background: var(--save); }
+        .btn-load { background: var(--load); }
+        .btn-clear { background: #666; }
 
-        /* --- PANEL DE BALANCE DE INVENTARIO INFERIOR --- */
+        /* --- PANEL DE BALANCE --- */
         .balance-section { margin-top: 35px; border-top: 3px solid var(--dark); padding-top: 20px; }
-        
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .metric-card { padding: 15px; border-radius: 8px; color: white; text-align: center; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 3px solid transparent; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; user-select: none; }
         .metric-card:hover { transform: translateY(-3px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
@@ -126,26 +128,28 @@
             body { background: white; margin: 0; padding: 0; }
             .container { box-shadow: none; border: none; width: 100%; max-width: 100%; padding: 0; }
             .no-print, .actions, .config-bar, .search-section, .delete-col, #resultsList { display: none !important; }
+            .print-only { display: inline-block !important; }
             
             body:not(.print-balance-mode):not(.print-ticket-mode) .balance-section { display: none !important; }
             body:not(.print-balance-mode):not(.print-ticket-mode) .factura-header { display: block !important; text-align: center; margin-bottom: 20px; }
             body:not(.print-balance-mode):not(.print-ticket-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
             body:not(.print-balance-mode):not(.print-ticket-mode) .totales-container { grid-template-columns: 1fr; }
 
-            /* MODO TICKET POS80 */
+            /* MODO TICKET POS80 EXACTO A FOTO */
             body.print-ticket-mode .container { display: none !important; }
             body.print-ticket-mode #ticketPos80 {
                 display: block !important;
                 width: 72mm;
-                margin: 0;
+                margin: 0 auto;
                 padding: 0;
                 font-family: 'Courier New', Courier, monospace;
                 font-size: 11px;
                 color: #000;
+                line-height: 1.2;
             }
             @page {
                 size: auto;
-                margin: 0mm;
+                margin: 2mm;
             }
 
             /* MODO BALANCE */
@@ -166,7 +170,7 @@
 
 <div class="container">
     <div class="factura-header">
-        <h1>TECHO FÁCIL</h1>
+        <h1>INDUSTRIA TECHO FACIL, C.A.</h1>
         <p>Presupuesto y Facturación</p>
         <div style="text-align: left; margin-top: 15px; font-size: 1.1em; background: #f5f5f5; padding: 10px; border-radius: 5px;">
             <span id="printClienteNombre"><strong>Cliente:</strong> Ocasional</span>
@@ -183,7 +187,7 @@
         </div>
         <div>
             <label>👤 Nombre del Cliente:</label>
-            <input type="text" id="clienteNombre" placeholder="Ej: Juan Pérez / Inversiones J&R" oninput="sincronizarCliente()">
+            <input type="text" id="clienteNombre" placeholder="Ej: José Sposito" oninput="sincronizarCliente()">
         </div>
         <div>
             <label>Tasa BCV (Bs):</label>
@@ -216,7 +220,7 @@
             <tr>
                 <th>Código</th>
                 <th>Descripción</th>
-                <th>Cant.</th>
+                <th style="text-align: center;">Cant.</th>
                 <th class="col-usd">Costo Unit ($)</th>
                 <th class="col-usd">Subtotal ($)</th>
                 <th class="col-bs">PVP Unit (Bs)</th>
@@ -242,15 +246,17 @@
 
     <div class="actions no-print">
         <button class="main-btn btn-clear" onclick="limpiar()">Vaciar</button>
+        <button class="main-btn btn-save" onclick="guardarPresupuesto()">💾 Guardar Presupuesto</button>
+        <button class="main-btn btn-load" onclick="document.getElementById('inputCargarPresupuesto').click()">📂 Cargar Presupuesto</button>
+        <input type="file" id="inputCargarPresupuesto" accept=".json" style="display: none;" onchange="cargarPresupuesto(event)">
         <button class="main-btn btn-whatsapp" onclick="enviarWhatsApp()">💬 Enviar por WhatsApp</button>
         <button class="main-btn btn-print" onclick="prepararImpresion()">🖨️ Imprimir Carta/A4</button>
         <button class="main-btn btn-ticket" onclick="imprimirTicketPOS80()">🖨️ Ticket POS80</button>
     </div>
 
     <div class="balance-section">
-        
         <div class="print-only">
-            <h1>TECHO FÁCIL</h1>
+            <h1>INDUSTRIA TECHO FACIL, C.A.</h1>
             <h2>Balance General de Existencias de Productos</h2>
             <p id="printBalanceFecha">Fecha de emisión: --/--/----</p>
             <p id="printBalanceFiltro" style="font-weight: bold;">Rango de reporte: Todos los productos</p>
@@ -621,7 +627,7 @@
             body.innerHTML += `<tr>
                 <td style="color:#666">#${item.cod}</td>
                 <td>${item.n}</td>
-                <td>
+                <td style="text-align: center;">
                     <input type="number" class="input-cant-tabla no-print" value="${item.c}" min="0.1" step="any" onchange="cambiarCantidad(${i}, this.value)">
                     <span class="print-only">${item.c}</span>
                 </td>
@@ -640,12 +646,69 @@
         document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolarTotal.toFixed(2)}`;
     }
 
+    /* --- FUNCIONES DE GUARDAR Y CARGAR PRESUPUESTO --- */
+    function guardarPresupuesto() {
+        if (cart.length === 0) return alert("El presupuesto está vacío.");
+        
+        const cliente = document.getElementById('clienteNombre').value.trim() || "Ocasional";
+        const tasa = parseFloat(document.getElementById('tasa').value) || 0;
+        const factor = parseFloat(document.getElementById('factor').value) || 1;
+
+        const dataPresupuesto = {
+            cliente: cliente,
+            fecha: new Date().toISOString(),
+            tasa: tasa,
+            factor: factor,
+            cart: cart
+        };
+
+        const jsonString = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataPresupuesto, null, 2));
+        const downloadAnchor = document.createElement('a');
+        
+        const fechaNombre = new Date().toISOString().slice(0,10);
+        downloadAnchor.setAttribute("href", jsonString);
+        downloadAnchor.setAttribute("download", `Presupuesto_${cliente.replace(/\s+/g, '_')}_${fechaNombre}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    }
+
+    function cargarPresupuesto(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.cart && Array.isArray(data.cart)) {
+                    cart = data.cart;
+                    if (data.cliente) {
+                        document.getElementById('clienteNombre').value = data.cliente;
+                        sincronizarCliente();
+                    }
+                    if (data.tasa) document.getElementById('tasa').value = data.tasa;
+                    if (data.factor) document.getElementById('factor').value = data.factor;
+                    
+                    recofigurarPreciosCarrito();
+                    alert("Presupuesto cargado con éxito.");
+                } else {
+                    alert("El archivo no tiene un formato válido de presupuesto.");
+                }
+            } catch (err) {
+                alert("Error al leer el archivo de presupuesto.");
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // Limpiar input file
+    }
+
     function prepararImpresion() {
         if (cart.length === 0) return alert("El carrito está vacío.");
 
         const opcion = prompt("¿En qué moneda desea imprimir el documento?\n\n1 = En Dólares ($)\n2 = En Bolívares (Bs.)", "2");
 
-        if (!opcion) return; // Si cancela
+        if (!opcion) return;
 
         const opcionLimpia = opcion.trim();
         if (opcionLimpia !== "1" && opcionLimpia !== "2") {
@@ -660,13 +723,11 @@
         document.body.classList.remove('print-balance-mode', 'print-ticket-mode');
 
         if (opcionLimpia === "1") {
-            // Opción 1: Solo Dólares
             colsUsd.forEach(el => el.classList.remove('hide-usd'));
             colsBs.forEach(el => el.classList.add('hide-bs'));
             if(boxDivisas) boxDivisas.classList.remove('hide-usd');
             if(boxBolivares) boxBolivares.classList.add('hide-bs');
         } else {
-            // Opción 2: Solo Bolívares
             colsUsd.forEach(el => el.classList.add('hide-usd'));
             colsBs.forEach(el => el.classList.remove('hide-bs'));
             if(boxDivisas) boxDivisas.classList.add('hide-usd');
@@ -675,7 +736,6 @@
 
         window.print();
 
-        // Restaurar la vista en pantalla después de la impresión
         setTimeout(() => {
             colsUsd.forEach(el => el.classList.remove('hide-usd'));
             colsBs.forEach(el => el.classList.remove('hide-bs'));
@@ -687,53 +747,85 @@
     function imprimirTicketPOS80() {
         if (cart.length === 0) return alert("El carrito está vacío.");
         
+        const opcion = prompt("¿En qué moneda desea emitir el Ticket POS80?\n\n1 = En Dólares ($)\n2 = En Bolívares (Bs.)", "2");
+        if (!opcion) return;
+
+        const opcionLimpia = opcion.trim();
+        if (opcionLimpia !== "1" && opcionLimpia !== "2") {
+            return alert("Opción no válida. Ingrese 1 para Dólares o 2 para Bolívares.");
+        }
+
+        const esDolar = opcionLimpia === "1";
         const cliente = document.getElementById('clienteNombre').value.trim() || "Ocasional";
-        const tasa = parseFloat(document.getElementById('tasa').value) || 0;
-        let tPromo = 0, tBs = 0;
+        const now = new Date();
+        const fechaStr = now.toLocaleDateString('es-VE');
+        const horaStr = now.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
 
         let itemsHTML = '';
+        let totalGeneral = 0;
+
         cart.forEach(item => {
-            const subPromo = item.p * item.c;
-            const subBs = Math.round((item.bs * item.c) * 100) / 100;
-            tPromo += subPromo;
-            tBs += subBs;
+            let precioUnit, subtotal;
+            if (esDolar) {
+                precioUnit = item.p;
+                subtotal = item.p * item.c;
+            } else {
+                precioUnit = item.bs;
+                subtotal = Math.round((item.bs * item.c) * 100) / 100;
+            }
+            totalGeneral += subtotal;
+
+            const pUnitStr = precioUnit.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const subStr = subtotal.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
             itemsHTML += `
-                <div style="margin-bottom: 5px;">
-                    <div><strong>${item.n}</strong></div>
+                <div style="margin-bottom: 6px;">
                     <div style="display: flex; justify-content: space-between;">
-                        <span>${item.c} x $${item.p.toFixed(2)}</span>
-                        <span>$${subPromo.toFixed(2)}</span>
+                        <span><strong>${item.cod}</strong></span>
+                        <span>${item.c} xB ${pUnitStr}</span>
+                        <span><strong>${subStr}</strong></span>
                     </div>
+                    <div style="font-size: 10px;">(${item.n}) ${esDolar ? '$' : ''}</div>
                 </div>
             `;
         });
 
+        const totalStr = totalGeneral.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const simbolo = esDolar ? "$" : "Bs.";
+
         const ticketDiv = document.getElementById('ticketPos80');
         ticketDiv.innerHTML = `
-            <div style="text-align: center; font-weight: bold; margin-bottom: 10px;">
-                <div style="font-size: 14px;">TECHO FÁCIL</div>
-                <div>Cotización / Comprobante</div>
-                <div>--------------------------------</div>
+            <div style="text-align: center; margin-bottom: 8px;">
+                <div style="font-size: 11px; font-weight: bold;">J-41125795-8</div>
+                <div style="font-size: 13px; font-weight: bold;">INDUSTRIA TECHO FACIL, C.A.</div>
             </div>
-            <div style="margin-bottom: 8px;">
-                <div><strong>Cliente:</strong> ${cliente}</div>
-                <div><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-VE')}</div>
-                <div><strong>Tasa BCV:</strong> Bs. ${tasa.toFixed(2)}</div>
+            
+            <div style="margin-bottom: 6px; font-size: 10px;">
+                <div><strong>CLIENTE</strong> ${cliente}</div>
+                <div><strong>RIF</strong> V-00000000</div>
+                <div><strong>DIRECCION</strong> Valencia, Carabobo</div>
+                <div><strong>TELEFON </strong> 0412-0000000</div>
+                <div><strong>Vende</strong> MARKETING</div>
+                <div style="display: flex; justify-content: space-between; margin-top: 3px;">
+                    <span><strong>FECHA</strong> ${fechaStr}</span>
+                    <span>Hora: ${horaStr}</span>
+                </div>
+                <div style="text-align: center; margin-top: 4px; font-weight: bold; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 0;">
+                    TICKET DE CAJA &nbsp;&nbsp;&nbsp;&nbsp; 00029705
+                </div>
             </div>
-            <div>--------------------------------</div>
-            ${itemsHTML}
-            <div>--------------------------------</div>
-            <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                <span>TOTAL USD:</span>
-                <span>$${tPromo.toFixed(2)}</span>
+
+            <div style="margin-top: 8px;">
+                ${itemsHTML}
             </div>
-            <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                <span>TOTAL BS:</span>
-                <span>Bs. ${tBs.toLocaleString('es-VE', {minimumFractionDigits: 2})}</span>
-            </div>
-            <div style="text-align: center; margin-top: 15px;">
-                <div>¡Gracias por su preferencia!</div>
+
+            <div style="border-top: 1px solid #000; margin-top: 8px; padding-top: 4px; text-align: right; font-size: 10px;">
+                <div>Monto Descuento 0,00</div>
+                <div style="font-size: 12px; font-weight: bold; margin-top: 2px;">
+                    Total Operación ${simbolo} ${totalStr}
+                </div>
+                <div style="margin-top: 3px; font-size: 9px;">Total Pagado: ${simbolo} ${totalStr}</div>
+                <div style="font-size: 9px;">Saldo Operación: 0.00</div>
             </div>
         `;
 
@@ -763,7 +855,6 @@
         let totalBS = 0;
 
         if (opcionLimpia === "2") {
-            // OPCIÓN 2: EN BOLÍVARES (BS)
             cart.forEach(item => {
                 const subBs = Math.round((item.bs * item.c) * 100) / 100;
                 const subPvpDolar = item.pvp * item.c;
@@ -788,7 +879,6 @@
             texto += `¡Gracias por preferir a TechoFácil! 👍`;
 
         } else {
-            // OPCIÓN 1: EN DÓLARES ($)
             let totalUSD_Promo = 0;
             cart.forEach(item => {
                 const subPromo = item.p * item.c;
