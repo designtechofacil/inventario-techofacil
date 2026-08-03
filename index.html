@@ -135,7 +135,7 @@
             body:not(.print-balance-mode):not(.print-ticket-mode) .factura-table th { background: #eee !important; color: black !important; border: 1px solid #000; }
             body:not(.print-balance-mode):not(.print-ticket-mode) .totales-container { grid-template-columns: 1fr; }
 
-            /* MODO TICKET POS80 EXACTO A FOTO */
+            /* MODO TICKET POS80 */
             body.print-ticket-mode .container { display: none !important; }
             body.print-ticket-mode #ticketPos80 {
                 display: block !important;
@@ -646,7 +646,6 @@
         document.getElementById('equivDolarPVP').innerText = `Equiv: $ ${tPvpDolarTotal.toFixed(2)}`;
     }
 
-    /* --- FUNCIONES DE GUARDAR Y CARGAR PRESUPUESTO --- */
     function guardarPresupuesto() {
         if (cart.length === 0) return alert("El presupuesto está vacío.");
         
@@ -700,7 +699,7 @@
             }
         };
         reader.readAsText(file);
-        event.target.value = ''; // Limpiar input file
+        event.target.value = '';
     }
 
     function prepararImpresion() {
@@ -747,7 +746,7 @@
     function imprimirTicketPOS80() {
         if (cart.length === 0) return alert("El carrito está vacío.");
         
-        const opcion = prompt("¿En qué moneda desea emitir el Ticket POS80?\n\n1 = En Dólares ($)\n2 = En Bolívares (Bs.)", "2");
+        const opcion = prompt("¿En qué moneda desea emitir el Ticket POS80?\n\n1 = En Dólares ($) -> Convertidos a Bs. según Tasa BCV\n2 = En Bolívares (Bs.)", "2");
         if (!opcion) return;
 
         const opcionLimpia = opcion.trim();
@@ -755,28 +754,31 @@
             return alert("Opción no válida. Ingrese 1 para Dólares o 2 para Bolívares.");
         }
 
-        const esDolar = opcionLimpia === "1";
+        const esDolarConvertido = opcionLimpia === "1";
+        const tasaNum = parseFloat(document.getElementById('tasa').value) || 1;
         const cliente = document.getElementById('clienteNombre').value.trim() || "Ocasional";
         const now = new Date();
         const fechaStr = now.toLocaleDateString('es-VE');
         const horaStr = now.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
 
         let itemsHTML = '';
-        let totalGeneral = 0;
+        let totalGeneralBs = 0;
 
         cart.forEach(item => {
-            let precioUnit, subtotal;
-            if (esDolar) {
-                precioUnit = item.p;
-                subtotal = item.p * item.c;
-            } else {
-                precioUnit = item.bs;
-                subtotal = Math.round((item.bs * item.c) * 100) / 100;
-            }
-            totalGeneral += subtotal;
+            let precioUnitBs, subtotalBs;
 
-            const pUnitStr = precioUnit.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-            const subStr = subtotal.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (esDolarConvertido) {
+                precioUnitBs = Math.round((item.p * tasaNum) * 100) / 100;
+                subtotalBs = Math.round((precioUnitBs * item.c) * 100) / 100;
+            } else {
+                precioUnitBs = item.bs;
+                subtotalBs = Math.round((item.bs * item.c) * 100) / 100;
+            }
+
+            totalGeneralBs += subtotalBs;
+
+            const pUnitStr = precioUnitBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            const subStr = subtotalBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
             itemsHTML += `
                 <div style="margin-bottom: 6px;">
@@ -785,13 +787,14 @@
                         <span>${item.c} xB ${pUnitStr}</span>
                         <span><strong>${subStr}</strong></span>
                     </div>
-                    <div style="font-size: 10px;">(${item.n}) ${esDolar ? '$' : ''}</div>
+                    <div style="font-size: 10px;">(${item.n})</div>
                 </div>
             `;
         });
 
-        const totalStr = totalGeneral.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
-        const simbolo = esDolar ? "$" : "Bs.";
+        totalGeneralBs = Math.round(totalGeneralBs * 100) / 100;
+        const totalStr = totalGeneralBs.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const tasaStr = tasaNum.toLocaleString('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 
         const ticketDiv = document.getElementById('ticketPos80');
         ticketDiv.innerHTML = `
@@ -810,6 +813,7 @@
                     <span><strong>FECHA</strong> ${fechaStr}</span>
                     <span>Hora: ${horaStr}</span>
                 </div>
+                ${esDolarConvertido ? `<div style="margin-top: 2px;"><strong>TASA BCV:</strong> Bs. ${tasaStr}</div>` : ''}
                 <div style="text-align: center; margin-top: 4px; font-weight: bold; border-top: 1px dashed #000; border-bottom: 1px dashed #000; padding: 2px 0;">
                     TICKET DE CAJA &nbsp;&nbsp;&nbsp;&nbsp; 00029705
                 </div>
@@ -822,9 +826,9 @@
             <div style="border-top: 1px solid #000; margin-top: 8px; padding-top: 4px; text-align: right; font-size: 10px;">
                 <div>Monto Descuento 0,00</div>
                 <div style="font-size: 12px; font-weight: bold; margin-top: 2px;">
-                    Total Operación ${simbolo} ${totalStr}
+                    Total Operación Bs. ${totalStr}
                 </div>
-                <div style="margin-top: 3px; font-size: 9px;">Total Pagado: ${simbolo} ${totalStr}</div>
+                <div style="margin-top: 3px; font-size: 9px;">Total Pagado: Bs. ${totalStr}</div>
                 <div style="font-size: 9px;">Saldo Operación: 0.00</div>
             </div>
         `;
